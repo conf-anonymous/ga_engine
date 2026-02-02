@@ -10,14 +10,47 @@ A production-candidate Rust framework for privacy-preserving computation, combin
 
 **GA Engine** implements **Clifford FHE**, a novel cryptographic scheme combining Ring Learning With Errors (RLWE) based fully homomorphic encryption with Clifford geometric algebra operations. This enables practical privacy-preserving machine learning on encrypted geometric data, a capability critical for medical imaging, autonomous systems, and secure spatial computing applications.
 
-**Key Research Finding**: CliffordFHE achieves **information-theoretic privacy** against execution-trace attacks. While CKKS leaks input dimensions with 100% accuracy via rotation counts, CliffordFHE's fixed 64-multiplication structure reveals zero information.
+**Key Research Finding**: Clifford FHE achieves **information-theoretic privacy** against execution-trace attacks. While CKKS leaks input dimensions with 100% accuracy via rotation counts, Clifford FHE's fixed multiplication structure (64 structure constants, 8 non-zero per component) reveals zero information.
 
 The framework achieves **production-candidate performance** through systematic optimization: from baseline reference implementation (V1) to hardware-accelerated backends featuring Metal and CUDA GPU support achieving **2,002× speedup**, delivering **sub-millisecond** homomorphic additions and **~217ms** ciphertext multiplications on NVIDIA RTX 4090 architecture.
 
 ## Technical Achievements
 
+### Practical Homomorphic Division
+
+**The Problem**: Division of encrypted values (computing Enc(a)/Enc(b) from two ciphertexts) has remained impractical in approximate arithmetic FHE. No major library (SEAL, HElib, OpenFHE, PALISADE) provides a practical ciphertext-ciphertext division primitive.
+
+**Our Solution**: Newton-Raphson iteration with geometric algebra integration achieves:
+
+| Metric | Our Approach | Binary Circuits | Chebyshev (OpenFHE) |
+|--------|--------------|-----------------|---------------------|
+| **Depth** | 5-7 levels (constant) | 448 levels (64-bit) | 63 levels (10⁻⁹ precision) |
+| **Time (GPU)** | **1.2-5.1 seconds** | ~374 seconds (estimated) | 1.7× slower |
+| **Accuracy** | 10⁻⁸ to 10⁻¹² | Exact | 9× worse at same depth |
+| **Chained Divisions** | 10⁻¹¹ precision | Requires bootstrapping | **Fails catastrophically** |
+
+**Key Results**:
+- **9× better accuracy** than Chebyshev polynomial methods at the same depth budget
+- **86% less depth** than Chebyshev for production-grade precision (9 vs 63 levels)
+- **16 million times more accurate** for chained operations (Newton-Raphson: 3.6×10⁻⁶ error vs Chebyshev: 58% error)
+- **First demonstration** of GPU-accelerated Newton-Raphson division integrated with full CKKS bootstrapping
+- **Unlimited division chains** via bootstrap pipeline: Division → Bootstrap → Division → ...
+
+**Why Geometric Algebra Enables This**: The multivector inversion formula M⁻¹ = M†/(M·M†) is the key insight:
+- The reverse operation M† is **O(1)**: a simple coefficient permutation with sign changes, requiring **zero homomorphic computation**
+- For unit rotors (standard in graphics/robotics): inversion is **FREE** (0 multiplications)
+- For general rotors: **4.2× fewer operations** than matrix inversion
+- Unified framework: one formula handles scalars, complex numbers, quaternions, vectors, and general multivectors
+
+**Applications Unlocked**:
+- Batch normalization and softmax in encrypted neural networks
+- Vector normalization for encrypted geometry (2.1s on GPU)
+- Encrypted rigid body dynamics with orientation updates
+- Homomorphic deconvolution in signal processing
+
 ### Cryptographic Innovation
-- **First RLWE-based FHE with native Clifford algebra**: Complete implementation of all 7 fundamental geometric operations under encryption
+- **Clifford FHE**: Native algebraic extension to CKKS with first-class geometric algebra support over Cl(3,0). Encodes the Clifford multiplication table through structure constants, enabling sparse parallel evaluation with only 8 non-zero terms per output component (vs 64 component multiplications with manual sign management)
+- **First GPU-accelerated Newton-Raphson division with CKKS bootstrapping**: Enabling unbounded division chains for iterative algorithms on encrypted data
 - **≥118-bit post-quantum security**: Verified using Lattice Estimator against primal, dual, and hybrid attacks
 - **Production-grade RNS-CKKS foundation**: Multi-prime modulus chain enabling deep computation circuits
 - **Full bootstrapping implementation** (V3): Unlimited multiplication depth through homomorphic noise refresh
@@ -34,7 +67,7 @@ The framework achieves **production-candidate performance** through systematic o
 | V1 Baseline | Apple M3 Max CPU | 11,420 ms | 1× | 0.09 ops/sec |
 | V2 CPU (Rayon) | Apple M3 Max (14-core) | 300 ms | 38× | 3.3 ops/sec |
 | V2 Metal GPU | Apple M3 Max GPU | 33 ms | 346× | 30.3 ops/sec |
-| **V2 CUDA GPU** | **NVIDIA RTX 5090** | **5.7 ms** | **2,002×** | **175 ops/sec** |
+| **V2 CUDA GPU** | **NVIDIA RTX 4090** | **5.7 ms** | **2,002×** | **175 ops/sec** |
 
 #### CUDA GPU Benchmark Results (NVIDIA RTX 4090)
 
@@ -49,10 +82,16 @@ The framework achieves **production-candidate performance** through systematic o
 | **Multiply (ct×ct)** | 286.35 ms | 3.5 ops/sec |
 | **Rotate (1 slot)** | 6.5-6.8 ms | 150 ops/sec |
 
-**Homomorphic Division** (Goldschmidt, N=4096):
-- Average time: **1.37s** per division
-- CPU comparison: ~8,000 ms
-- **Speedup: 5.8×**
+**Homomorphic Division** (Newton-Raphson, GPU-accelerated):
+
+| Ring Size | Time | Precision | Throughput |
+|-----------|------|-----------|------------|
+| N=4096 | **1.24s** | 10⁻⁸ | 0.80 div/sec |
+| N=8192 | **4.14s** | 10⁻¹² | 0.24 div/sec |
+
+- **Chained divisions**: 4+ sequential divisions with 10⁻¹¹ precision
+- **Depth**: Only 5-7 levels (vs 448 for binary circuits)
+- **CPU baseline**: ~7 seconds → **5.6× GPU speedup**
 
 **V4 Geometric Product** (Packed Multivector Layout, NVIDIA RTX 4090):
 | Configuration | Time | Notes |
@@ -93,7 +132,7 @@ The framework achieves **production-candidate performance** through systematic o
 
 ## System Architecture
 
-### Five-Tier Implementation Strategy
+### Six-Tier Implementation Strategy
 
 #### **V1: Reference Baseline**
 - **Purpose**: Correctness verification, academic reproducibility, performance baseline
@@ -158,9 +197,9 @@ The framework achieves **production-candidate performance** through systematic o
   - Execution trace collection (CPU and GPU backends)
   - Six attack implementations (dimension inference, task identification, operation count, trace length, sparsity inference, tenant linkability)
   - Information-theoretic analysis tools
-- **Key Finding**: CliffordFHE wins 4 attacks, ties 2 vs CKKS
+- **Key Finding**: Clifford FHE wins 4 attacks, ties 2 vs CKKS
   - CKKS leaks 2.585 bits of dimension entropy (100% attack accuracy)
-  - CliffordFHE leaks 0 bits (random-guessing accuracy: 16.7%)
+  - Clifford FHE leaks 0 bits (random-guessing accuracy: 16.7%)
 - **Use Case**: Security research, privacy auditing, academic reproducibility
 
 #### **V6: parallel_lift GPU Acceleration**
@@ -197,6 +236,7 @@ All operations preserve mathematical structure under encryption with error <10�
 |-----------|-------|-------------|---------|--------------|---------|
 | **Geometric Product** | 1 | Fundamental Clifford product: a⊗b | 11.42s | 5.7ms | 2,002× |
 | **Reverse** | 0 | Grade involution: ~a | <1ms | <1ms | - |
+| **Inversion** | 5-9 | Multivector inverse: M⁻¹ = M†/(M·M†) | N/A | 1.2-5.1s | - |
 | **Rotation** | 2 | Rotor-based rotation: R⊗v⊗~R | 22.8s | 11.4ms | 2,000× |
 | **Wedge Product** | 2 | Exterior product: a∧b = (a⊗b - b⊗a)/2 | 22.8s | 11.4ms | 2,000× |
 | **Inner Product** | 2 | Contraction: a·b = (a⊗b + b⊗a)/2 | 22.8s | 11.4ms | 2,000× |
@@ -204,8 +244,8 @@ All operations preserve mathematical structure under encryption with error <10�
 | **Rejection** | 3 | Orthogonal component: b - proj_a(b) | 34.3s | 17.1ms | 2,006× |
 
 **Mathematical Foundation**: Operations preserve Clifford algebra Cl(3,0) structure:
-- Basis: {1, e₁, e₂, e₃, e₁₂, e₁₃, e₂₃, e₁₂₃}
-- Multiplication table: 64 structure constants encoding geometric product
+- Basis: {1, e₁, e₂, e₃, e₁₂, e₁₃, e₂₃, e₁₂₃} (8 components)
+- Multiplication table: 64 structure constants, only 8 non-zero per output component (sparse evaluation)
 - Graded structure: scalar ⊕ vector ⊕ bivector ⊕ trivector
 
 ### Cryptographic Security
@@ -228,7 +268,7 @@ Conservative estimate: λ ≥ 118 bits
 - IND-CPA security via game-hopping reduction
 - Modulus chain: 3-30 primes (45-60 bits each) for depth management
 
-**Important**: Research prototype—not constant-time, requires security audit for production deployment.
+**Important**: Research prototype. Not constant-time; requires security audit for production deployment.
 
 ## Documentation
 
@@ -266,10 +306,13 @@ See [INSTALLATION.md](INSTALLATION.md) for GPU backend setup (Metal/CUDA).
 # V2 CPU: Encrypted 3D classification (38× faster than V1)
 cargo run --release --features v2 --example encrypted_3d_classification
 
+# V2 CPU: Encrypted geometric product demo
+cargo run --release --features v2 --example encrypted_geometric_product_demo
+
 # V2 CUDA GPU: Maximum performance (2,002× faster than V1)
 cargo test --release --features v2,v2-gpu-cuda --test test_geometric_operations_cuda -- --nocapture
 
-# V3 CUDA GPU: Full bootstrap (100% GPU, 16.15s)
+# V3 CUDA GPU: Full bootstrap (100% GPU, 11.69s)
 cargo run --release --features v2,v2-gpu-cuda,v3 --example test_cuda_bootstrap
 
 # V3 Metal GPU: Full bootstrap (100% GPU, 71s)
@@ -281,26 +324,46 @@ cargo test --release --features v4,v2-gpu-metal --test test_geometric_operations
 # V4 CUDA GPU: Packed geometric product (quick test, N=1024)
 cargo run --release --features v4,v2-gpu-cuda --example bench_v4_cuda_geometric_quick
 
+# Homomorphic Division examples
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example test_homomorphic_division
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda,v3 --example test_division_bootstrap_integration
+
 # V5: Privacy attack analysis
 cargo run --release --features v5 --example v5_privacy_attacks
 
 # V5: Dimension inference attack only
 cargo run --release --features v5 --example v5_dimension_attack
+
+# V5: Execution trace collector
+cargo run --release --features v5 --example v5_trace_collector
 ```
 
 ### Running Benchmarks
 
 ```bash
-# Full CUDA benchmark suite (all operations + bootstrap)
+# Full CUDA benchmark suite (all operations + bootstrap + division, ~30-60 min)
 ./scripts/run_cuda_benchmarks.sh full
 
-# Quick CUDA benchmarks (basic verification)
+# Quick CUDA benchmarks (basic verification, ~5-10 min)
 ./scripts/run_cuda_benchmarks.sh
 
-# Individual benchmarks
+# Individual CUDA benchmarks
 cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example bench_cuda_all_ops
 cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda,v3 --example bench_cuda_bootstrap
 cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example bench_division_cuda_gpu
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda,v4 --example bench_v4_cuda_geometric_quick
+
+# Division benchmarks (Newton-Raphson vs Chebyshev comparison)
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example bench_nr_vs_chebyshev_division
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example bench_division_comprehensive
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda,v3 --example bench_division_with_bootstrap
+
+# Metal GPU benchmarks (macOS)
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-metal --example bench_division_metal_gpu
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-metal,v4 --example bench_v4_geometric_product
+
+# Vector normalization pipeline (uses division)
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda --example bench_vector_normalization_pipeline
 ```
 
 ### Running Tests
@@ -340,7 +403,7 @@ See [TESTING_GUIDE.md](TESTING_GUIDE.md) for comprehensive testing instructions.
   - Rotation: 6.5ms
   - With bootstrap: **11.69s** refresh (V3 CUDA GPU)
 - **Error**: <10⁻⁶ relative precision maintained throughout computation
-- **Privacy**: Zero-knowledge inference—server never observes plaintext data or model weights
+- **Privacy**: Zero-knowledge inference; server never observes plaintext data or model weights
 
 **Dataset**: Synthetic geometric shapes (spheres, cubes, pyramids) with rotational invariance.
 
