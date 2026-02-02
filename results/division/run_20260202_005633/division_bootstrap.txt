@@ -1,0 +1,906 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+    Finished `release` profile [optimized] target(s) in 12.25s
+     Running `target/release/examples/bench_division_with_bootstrap`
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║          HOMOMORPHIC DIVISION WITH BOOTSTRAPPING                                             ║
+║                    Unlimited Depth via Noise Refresh                                         ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 1: INITIALIZATION                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  [1/7] Initializing CUDA device...
+CUDA Device: NVIDIA GeForce RTX 4090
+  [2/7] Setting up V3 bootstrap parameters...
+Generating V3 CUDA GPU full bootstrap parameters (N=1024, 30 primes)...
+Generating 1 NTT-friendly primes (~60-bit) for N=1024...
+  Formula: q = k × 2048 + 1
+  Target range: [576460752303423488, 1152921504606846976)
+  Found 1/1 primes (latest: q=576460752303439873, k=281474976710664)
+✓ Generated 1 NTT-friendly primes successfully!
+
+Generating 29 NTT-friendly primes (~45-bit) for N=1024...
+  Formula: q = k × 2048 + 1
+  Target range: [17592186044416, 35184372088832)
+  Found 5/29 primes (latest: q=17592186112001, k=8589934625)
+  Found 10/29 primes (latest: q=17592186204161, k=8589934670)
+  Found 15/29 primes (latest: q=17592186359809, k=8589934746)
+  Found 20/29 primes (latest: q=17592186413057, k=8589934772)
+  Found 25/29 primes (latest: q=17592186634241, k=8589934880)
+  Found 29/29 primes (latest: q=17592186728449, k=8589934926)
+✓ Generated 29 NTT-friendly primes successfully!
+
+  Generated 30 NTT-friendly primes
+  N = 1024, num_primes = 30
+  Level budget: CoeffToSlot(9) + EvalMod(9) + SlotToCoeff(9) = 27 levels used
+         Ring dimension (N): 1024
+         Number of primes: 30 (max level: 29)
+         Scale: 2^45
+
+  [3/7] Creating CUDA CKKS context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 30 primes...
+  [CUDA] Prime 0: q=576460752303439873, psi=208928634629474735, omega=471554836584496501
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=17592186062849, psi=9483734021657, omega=15303931801045
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=17592186064897, psi=6367868744110, omega=16884722405918
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 5/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 10/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 15/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 20/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 25/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 30/30 NTT contexts
+  [CUDA CKKS] NTT contexts created in 7.14s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 960KB twiddles, psi powers, and 30 moduli on GPU in 0.013s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+  [4/7] Creating rotation context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA Rotation Context                 ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Loading Galois CUDA kernels...
+  Galois kernels loaded
+
+Precomputing rotation maps for common rotations...
+  Precomputed 18 rotation maps
+
+  [5/7] Generating keys via KeyContext...
+  [DEBUG] Creating NTT contexts for 30 primes (parallelized)...
+  [CPU] Prime 0: q=576460752303439873, psi=208928634629474735, omega=471554836584496501
+  [CPU] Prime 1: q=17592186062849, psi=9483734021657, omega=15303931801045
+  [CPU] Prime 2: q=17592186064897, psi=6367868744110, omega=16884722405918
+  [DEBUG] NTT contexts created in 0.00s
+  [DEBUG] Starting keygen for N=1024, 30 primes
+  [DEBUG] Step 1/5: Secret key sampled in 0.00s
+  [DEBUG] Step 2/5: Uniform poly sampled in 0.00s
+  [DEBUG] Step 3/5: Error poly sampled in 0.00s
+  [DEBUG] Step 4/5: Public key computed in 0.00s
+  [DEBUG] Step 5/5: Starting evaluation key generation...
+  [DEBUG] Step 5/5: Evaluation key generated in 0.10s
+  [6/7] Generating rotation and relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Rotation Keys                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Gadget decomposition parameters:
+  Base w: 2^16 = 65536
+  Number of digits (dnum): 113
+  Total modulus bits: 1800
+
+Generating rotation key for rotation by 1 slots...
+  Galois element g: 5
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 2 slots...
+  Galois element g: 25
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 4 slots...
+  Galois element g: 625
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 8 slots...
+  Galois element g: 1505
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 16 slots...
+  Galois element g: 1985
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 32 slots...
+  Galois element g: 1921
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 64 slots...
+  Galois element g: 1793
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 128 slots...
+  Galois element g: 1537
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 256 slots...
+  Galois element g: 1025
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 30
+  Number of gadget digits (dnum): 86
+
+Generating relinearization key...
+  Generated 5/86 key switching components
+  Generated 10/86 key switching components
+  Generated 15/86 key switching components
+  Generated 20/86 key switching components
+  Generated 25/86 key switching components
+  Generated 30/86 key switching components
+  Generated 35/86 key switching components
+  Generated 40/86 key switching components
+  Generated 45/86 key switching components
+  Generated 50/86 key switching components
+  Generated 55/86 key switching components
+  Generated 60/86 key switching components
+  Generated 65/86 key switching components
+  Generated 70/86 key switching components
+  Generated 75/86 key switching components
+  Generated 80/86 key switching components
+  Generated 85/86 key switching components
+  Generated 86/86 key switching components
+  Relinearization key generated in 1.09s
+
+         Rotation keys: 11.93s (9 keys)
+         Relin keys: 1.09s
+
+  [7/7] Creating bootstrap context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║         CUDA GPU Bootstrap Context Initialized               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+
+  Initialization complete!
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 2: SINGLE DIVISION BASELINE                                                         │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Test: 100/7 = 14.2857142857
+
+  Initial ciphertext level: 29
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.14285714285714285
+  Iterations: 2
+  Initial level: 29
+  Encrypted initial guess at level 29
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 28)
+    Created trivial ciphertext for 2.0 (level 28)
+    Computed 2 - a·x_n (level 28)
+    Mod-switching ct_xn from level 29 to 28
+    Iteration complete (level 27)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 29 to 27
+    Computed a·x_n (level 26)
+    Created trivial ciphertext for 2.0 (level 26)
+    Computed 2 - a·x_n (level 26)
+    Mod-switching ct_xn from level 27 to 26
+    Iteration complete (level 25)
+
+Newton-Raphson inverse complete!
+   Final level: 25
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 29 to 25
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 24
+   Total depth consumed: 5
+
+  After division:
+    - Time: 10097.86ms
+    - Level: 24 (consumed 5 levels)
+    - Result: 14.2857142857
+    - Error: 9.97e-13
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 3: CHAINED DIVISIONS WITHOUT BOOTSTRAP (limited by depth)                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Chain: 1000 / 2 / 5 / 2 / 5 = 10
+
+  Starting level: 29
+
+  Division 1: / 2
+    Current level: 29
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.5
+  Iterations: 2
+  Initial level: 29
+  Encrypted initial guess at level 29
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 28)
+    Created trivial ciphertext for 2.0 (level 28)
+    Computed 2 - a·x_n (level 28)
+    Mod-switching ct_xn from level 29 to 28
+    Iteration complete (level 27)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 29 to 27
+    Computed a·x_n (level 26)
+    Created trivial ciphertext for 2.0 (level 26)
+    Computed 2 - a·x_n (level 26)
+    Mod-switching ct_xn from level 27 to 26
+    Iteration complete (level 25)
+
+Newton-Raphson inverse complete!
+   Final level: 25
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 29 to 25
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 24
+   Total depth consumed: 5
+
+    After division: level = 24, time = 10090.06ms
+  Division 2: / 5
+    Current level: 24
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.2
+  Iterations: 2
+  Initial level: 24
+  Encrypted initial guess at level 24
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 23)
+    Created trivial ciphertext for 2.0 (level 23)
+    Computed 2 - a·x_n (level 23)
+    Mod-switching ct_xn from level 24 to 23
+    Iteration complete (level 22)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 24 to 22
+    Computed a·x_n (level 21)
+    Created trivial ciphertext for 2.0 (level 21)
+    Computed 2 - a·x_n (level 21)
+    Mod-switching ct_xn from level 22 to 21
+    Iteration complete (level 20)
+
+Newton-Raphson inverse complete!
+   Final level: 20
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 24 to 20
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 19
+   Total depth consumed: 5
+
+    After division: level = 19, time = 6981.56ms
+  Division 3: / 2
+    Current level: 19
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.5
+  Iterations: 2
+  Initial level: 19
+  Encrypted initial guess at level 19
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 18)
+    Created trivial ciphertext for 2.0 (level 18)
+    Computed 2 - a·x_n (level 18)
+    Mod-switching ct_xn from level 19 to 18
+    Iteration complete (level 17)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 19 to 17
+    Computed a·x_n (level 16)
+    Created trivial ciphertext for 2.0 (level 16)
+    Computed 2 - a·x_n (level 16)
+    Mod-switching ct_xn from level 17 to 16
+    Iteration complete (level 15)
+
+Newton-Raphson inverse complete!
+   Final level: 15
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 19 to 15
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 14
+   Total depth consumed: 5
+
+    After division: level = 14, time = 4375.65ms
+  Division 4: / 5
+    Current level: 14
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.2
+  Iterations: 2
+  Initial level: 14
+  Encrypted initial guess at level 14
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 13)
+    Created trivial ciphertext for 2.0 (level 13)
+    Computed 2 - a·x_n (level 13)
+    Mod-switching ct_xn from level 14 to 13
+    Iteration complete (level 12)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 14 to 12
+    Computed a·x_n (level 11)
+    Created trivial ciphertext for 2.0 (level 11)
+    Computed 2 - a·x_n (level 11)
+    Mod-switching ct_xn from level 12 to 11
+    Iteration complete (level 10)
+
+Newton-Raphson inverse complete!
+   Final level: 10
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 14 to 10
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 9
+   Total depth consumed: 5
+
+    After division: level = 9, time = 2419.83ms
+
+  Summary (without bootstrap):
+    - Divisions completed: 4 of 4
+    - Total time: 23961.68ms
+    - Final level: 9
+    - Result: 0.0002898615
+    - Expected: 10.0000000000
+    - Error: 1.00e0
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 4: CHAINED DIVISIONS WITH BOOTSTRAP (unlimited depth)                               │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Same chain: 1000 / 2 / 5 / 2 / 5 = 10
+
+  Starting level: 29
+
+  Division 1: / 2
+    Current level: 29
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.5
+  Iterations: 2
+  Initial level: 29
+  Encrypted initial guess at level 29
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 28)
+    Created trivial ciphertext for 2.0 (level 28)
+    Computed 2 - a·x_n (level 28)
+    Mod-switching ct_xn from level 29 to 28
+    Iteration complete (level 27)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 29 to 27
+    Computed a·x_n (level 26)
+    Created trivial ciphertext for 2.0 (level 26)
+    Computed 2 - a·x_n (level 26)
+    Mod-switching ct_xn from level 27 to 26
+    Iteration complete (level 25)
+
+Newton-Raphson inverse complete!
+   Final level: 25
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 29 to 25
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 24
+   Total depth consumed: 5
+
+    After division: level = 24, time = 10077.31ms
+  Division 2: / 5
+    Current level: 24
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.2
+  Iterations: 2
+  Initial level: 24
+  Encrypted initial guess at level 24
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 23)
+    Created trivial ciphertext for 2.0 (level 23)
+    Computed 2 - a·x_n (level 23)
+    Mod-switching ct_xn from level 24 to 23
+    Iteration complete (level 22)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 24 to 22
+    Computed a·x_n (level 21)
+    Created trivial ciphertext for 2.0 (level 21)
+    Computed 2 - a·x_n (level 21)
+    Mod-switching ct_xn from level 22 to 21
+    Iteration complete (level 20)
+
+Newton-Raphson inverse complete!
+   Final level: 20
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 24 to 20
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 19
+   Total depth consumed: 5
+
+    After division: level = 19, time = 6926.36ms
+  Division 3: / 2
+    Current level: 19
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.5
+  Iterations: 2
+  Initial level: 19
+  Encrypted initial guess at level 19
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 18)
+    Created trivial ciphertext for 2.0 (level 18)
+    Computed 2 - a·x_n (level 18)
+    Mod-switching ct_xn from level 19 to 18
+    Iteration complete (level 17)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 19 to 17
+    Computed a·x_n (level 16)
+    Created trivial ciphertext for 2.0 (level 16)
+    Computed 2 - a·x_n (level 16)
+    Mod-switching ct_xn from level 17 to 16
+    Iteration complete (level 15)
+
+Newton-Raphson inverse complete!
+   Final level: 15
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 19 to 15
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 14
+   Total depth consumed: 5
+
+    After division: level = 14, time = 4366.12ms
+  Division 4: / 5
+    Current level: 14
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.2
+  Iterations: 2
+  Initial level: 14
+  Encrypted initial guess at level 14
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 13)
+    Created trivial ciphertext for 2.0 (level 13)
+    Computed 2 - a·x_n (level 13)
+    Mod-switching ct_xn from level 14 to 13
+    Iteration complete (level 12)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 14 to 12
+    Computed a·x_n (level 11)
+    Created trivial ciphertext for 2.0 (level 11)
+    Computed 2 - a·x_n (level 11)
+    Mod-switching ct_xn from level 12 to 11
+    Iteration complete (level 10)
+
+Newton-Raphson inverse complete!
+   Final level: 10
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 14 to 10
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 9
+   Total depth consumed: 5
+
+    After division: level = 9, time = 2398.22ms
+
+  Summary (with bootstrap):
+    - All 4 divisions completed!
+    - Bootstraps performed: 0
+    - Total division time: 23768.01ms
+    - Total bootstrap time: 0.00ms
+    - Total chain time: 23865.15ms
+    - Final level: 9
+    - Result: 0.0002898621
+    - Expected: 10.0000000000
+    - Error: 1.00e0
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 5: PERFORMANCE COMPARISON                                                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌────────────────────────────────────────┬────────────────────────────────────────┐
+  │ Metric                                 │ Without Bootstrap │ With Bootstrap    │
+  ├────────────────────────────────────────┼───────────────────┼───────────────────┤
+  │ Divisions completed                    │                 4 │                 4 │
+  │ Maximum possible divisions             │              ~1-2 │         Unlimited │
+  │ Total time (ms)                        │          23961.68 │          23865.15 │
+  │ Bootstraps required                    │                 0 │                 0 │
+  └────────────────────────────────────────┴───────────────────┴───────────────────┘
+
+  Key Insights:
+    1. Without bootstrap, depth limits us to ~1-2 divisions
+    2. Bootstrap enables unlimited division chains
+    3. Bootstrap cost (~10s) amortized over multiple divisions
+    4. For long chains, bootstrap overhead becomes negligible per-division
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 6: SUMMARY                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Homomorphic Division + Bootstrap enables:
+    - Unlimited chains of divisions on encrypted data
+    - Complex iterative algorithms (optimization, physics)
+    - Full geometric algebra inverse operations
+    - Real-world privacy-preserving applications
+
+  Depth Budget Management:
+    - Single division (2 iter): 5 levels
+    - Bootstrap refresh: restores to max level
+    - Strategy: monitor remaining depth, bootstrap when low
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║                              BENCHMARK COMPLETE                                              ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+

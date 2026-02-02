@@ -1,0 +1,321 @@
+ Downloading crates ...
+  Downloaded clap_lex v0.2.4
+  Downloaded cast v0.3.0
+  Downloaded ciborium v0.2.2
+  Downloaded ciborium-ll v0.2.2
+  Downloaded atty v0.2.14
+  Downloaded textwrap v0.16.2
+  Downloaded same-file v1.0.6
+  Downloaded anes v0.1.6
+  Downloaded walkdir v2.5.0
+  Downloaded half v2.7.1
+  Downloaded plotters-backend v0.3.7
+  Downloaded once_cell v1.21.3
+  Downloaded tinytemplate v1.2.1
+  Downloaded oorandom v11.1.5
+  Downloaded portable-atomic v1.13.1
+  Downloaded regex v1.12.2
+  Downloaded aho-corasick v1.1.4
+  Downloaded plotters v0.3.7
+  Downloaded regex-syntax v0.8.8
+  Downloaded itertools v0.10.5
+  Downloaded os_str_bytes v6.6.1
+  Downloaded lazy_static v1.5.0
+  Downloaded indexmap v1.9.3
+  Downloaded clap v3.2.25
+  Downloaded regex-automata v0.4.13
+  Downloaded number_prefix v0.4.0
+  Downloaded criterion-plot v0.5.0
+  Downloaded unicode-width v0.1.14
+  Downloaded console v0.15.11
+  Downloaded criterion v0.4.0
+  Downloaded colored v2.2.0
+  Downloaded indicatif v0.17.11
+  Downloaded hashbrown v0.12.3
+  Downloaded ciborium-io v0.2.2
+  Downloaded plotters-svg v0.3.7
+  Downloaded bitflags v1.3.2
+   Compiling proc-macro2 v1.0.106
+   Compiling quote v1.0.44
+   Compiling libc v0.2.180
+   Compiling zerocopy v0.8.37
+   Compiling serde_core v1.0.228
+   Compiling serde v1.0.228
+   Compiling either v1.15.0
+   Compiling indexmap v1.9.3
+   Compiling matrixmultiply v0.3.10
+   Compiling os_str_bytes v6.6.1
+   Compiling hashbrown v0.12.3
+   Compiling portable-atomic v1.13.1
+   Compiling ciborium-io v0.2.2
+   Compiling plotters-backend v0.3.7
+   Compiling regex-syntax v0.8.8
+   Compiling rayon v1.11.0
+   Compiling itertools v0.10.5
+   Compiling clap_lex v0.2.4
+   Compiling cast v0.3.0
+   Compiling plotters-svg v0.3.7
+   Compiling once_cell v1.21.3
+   Compiling textwrap v0.16.2
+   Compiling lazy_static v1.5.0
+   Compiling same-file v1.0.6
+   Compiling bitflags v1.3.2
+   Compiling plotters v0.3.7
+   Compiling walkdir v2.5.0
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+   Compiling number_prefix v0.4.0
+   Compiling oorandom v11.1.5
+   Compiling syn v2.0.114
+   Compiling anes v0.1.6
+   Compiling colored v2.2.0
+   Compiling clap v3.2.25
+   Compiling unicode-width v0.1.14
+   Compiling getrandom v0.2.17
+   Compiling console v0.15.11
+   Compiling atty v0.2.14
+   Compiling ndarray v0.15.6
+   Compiling rand_core v0.6.4
+   Compiling regex-automata v0.4.13
+   Compiling criterion-plot v0.5.0
+   Compiling indicatif v0.17.11
+   Compiling serde_json v1.0.149
+   Compiling regex v1.12.2
+   Compiling zerocopy-derive v0.8.37
+   Compiling serde_derive v1.0.228
+   Compiling tinytemplate v1.2.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.5
+   Compiling criterion v0.4.0
+   Compiling rand_distr v0.4.3
+    Finished `release` profile [optimized] target(s) in 20.95s
+     Running `target/release/examples/test_cuda_division_runpod`
+╔════════════════════════════════════════════════════════════════════════╗
+║     CUDA GPU Homomorphic Division - RunPod Test Suite                 ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Step 1: Initializing CUDA GPU...
+CUDA Device: NVIDIA GeForce RTX 4090
+  CUDA device initialized (152.97ms)
+
+Step 2: Initializing FHE parameters...
+  Parameters: N=4096, 7 primes (max level 6)
+  Scale: 2^40
+
+Step 3: Generating cryptographic keys...
+  [DEBUG] Creating NTT contexts for 7 primes (parallelized)...
+  [CPU] Prime 0: q=1152921504597016577, psi=142119819475847305, omega=351729224921194188
+  [CPU] Prime 1: q=1099511799809, psi=233161075628, omega=83678926232
+  [CPU] Prime 2: q=1099511922689, psi=56166301416, omega=89966450923
+  [DEBUG] NTT contexts created in 0.00s
+  [DEBUG] Starting keygen for N=4096, 7 primes
+  [DEBUG] Step 1/5: Secret key sampled in 0.00s
+  [DEBUG] Step 2/5: Uniform poly sampled in 0.00s
+  [DEBUG] Step 3/5: Error poly sampled in 0.00s
+  [DEBUG] Step 4/5: Public key computed in 0.01s
+  [DEBUG] Step 5/5: Starting evaluation key generation...
+  [DEBUG] Step 5/5: Evaluation key generated in 0.06s
+  Keys generated in 71.76ms
+
+Step 4: Initializing CUDA CKKS context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 7 primes...
+  [CUDA] Prime 0: q=1152921504597016577, psi=142119819475847305, omega=351729224921194188
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=1099511799809, psi=233161075628, omega=83678926232
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=1099511922689, psi=56166301416, omega=89966450923
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 5/7 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 7/7 NTT contexts
+  [CUDA CKKS] NTT contexts created in 2.63s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 896KB twiddles, psi powers, and 7 moduli on GPU in 0.014s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+  CUDA context ready in 2740.71ms
+
+Step 5: Generating CUDA relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 7
+  Number of gadget digits (dnum): 20
+
+Generating relinearization key...
+  Generated 5/20 key switching components
+  Generated 10/20 key switching components
+  Generated 15/20 key switching components
+  Generated 20/20 key switching components
+  Relinearization key generated in 0.11s
+
+  Relinearization keys generated in 110.94ms
+
+════════════════════════════════════════════════════════════════════════
+TEST 1: Ciphertext Multiplication + Rescaling
+════════════════════════════════════════════════════════════════════════
+
+Test: 2.0 * 3.0 = 6.0
+
+  Encoding and encrypting...
+  Encrypted at level 6
+
+  Performing GPU multiplication with relinearization...
+  GPU multiplication completed in 320.42ms
+  Level after multiply+rescale: 5
+
+  Decrypting and decoding...
+
+Results:
+  Expected:     6.0000000000
+  Computed:     5.9999999847
+  Error:        1.53e-8
+  Rel. Error:   2.55e-9
+  PASS - Multiplication working correctly
+
+════════════════════════════════════════════════════════════════════════
+TEST 2: Newton-Raphson Inverse
+════════════════════════════════════════════════════════════════════════
+
+Test: 1/4.0 = 0.2500
+Initial guess: 0.25
+
+  Encrypted input at level 6
+
+  Running Newton-Raphson iteration (2 iterations)...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.25
+  Iterations: 2
+  Initial level: 6
+  Encrypted initial guess at level 6
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 5)
+    Created trivial ciphertext for 2.0 (level 5)
+    Computed 2 - a·x_n (level 5)
+    Mod-switching ct_xn from level 6 to 5
+    Iteration complete (level 4)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 6 to 4
+    Computed a·x_n (level 3)
+    Created trivial ciphertext for 2.0 (level 3)
+    Computed 2 - a·x_n (level 3)
+    Mod-switching ct_xn from level 4 to 3
+    Iteration complete (level 2)
+
+Newton-Raphson inverse complete!
+   Final level: 2
+   Depth consumed: 4
+
+  Newton-Raphson completed in 1320.08ms
+  Final level: 2
+
+Results:
+  Expected:     0.2500000000
+  Computed:     0.2500000004
+  Error:        4.34e-10
+  Rel. Error:   1.74e-9
+  PASS - Inverse computation working
+
+════════════════════════════════════════════════════════════════════════
+TEST 3: Complete Homomorphic Division
+════════════════════════════════════════════════════════════════════════
+
+Test: 100.0 / 7.0 = 14.2857142857
+Initial guess for 1/7: 0.142857
+
+  Encrypted numerator and denominator at level 6
+
+  Performing complete GPU division...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.14285714285714285
+  Iterations: 2
+  Initial level: 6
+  Encrypted initial guess at level 6
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 5)
+    Created trivial ciphertext for 2.0 (level 5)
+    Computed 2 - a·x_n (level 5)
+    Mod-switching ct_xn from level 6 to 5
+    Iteration complete (level 4)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 6 to 4
+    Computed a·x_n (level 3)
+    Created trivial ciphertext for 2.0 (level 3)
+    Computed 2 - a·x_n (level 3)
+    Mod-switching ct_xn from level 4 to 3
+    Iteration complete (level 2)
+
+Newton-Raphson inverse complete!
+   Final level: 2
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 6 to 2
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 1
+   Total depth consumed: 5
+
+  GPU division completed in 1289.99ms
+  Final level: 1
+
+Results:
+  Expected:     14.2857142857
+  Computed:     14.2857142711
+  Error:        1.46e-8
+  Rel. Error:   1.02e-9
+  PASS - Division working correctly
+
+════════════════════════════════════════════════════════════════════════
+PERFORMANCE SUMMARY
+════════════════════════════════════════════════════════════════════════
+
+Operation Timings:
+  Key Generation:      71.76ms
+  Relin Key Gen:       110.94ms
+  Multiplication:      320.42ms
+  Newton-Raphson:      1320.08ms
+  Complete Division:   1289.99ms
+
+════════════════════════════════════════════════════════════════════════
+ALL TESTS PASSED - CUDA GPU DIVISION FULLY FUNCTIONAL
+════════════════════════════════════════════════════════════════════════
+
+Implementation Status: READY FOR PRODUCTION
+GPU Acceleration: VERIFIED
+

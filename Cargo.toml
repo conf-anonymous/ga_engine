@@ -1,0 +1,142 @@
+[package]
+name = "ga_engine"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[features]
+# by default we use f64, V1 (stable baseline), and lattice reduction
+default = ["f64", "nd", "v1", "lattice-reduction"]
+
+f32 = []     # compile everything under `nd` with f32
+f64 = []     # compile everything under `nd` with f64
+nd  = []
+
+# === Clifford FHE Version Selection ===
+# V1: Baseline reference implementation (stable, complete, well-tested)
+# V2: Optimized implementation (active development, performance-focused)
+# V3: Bootstrapping for unlimited depth (in development)
+# V4: Packed slot-interleaved layout (8× memory reduction)
+# V5: Privacy-trace collection and analysis
+# V6: parallel_lift GPU acceleration (25-552× speedup)
+v1 = []      # Baseline reference (default, stable)
+v2 = []      # Optimized version (active development)
+v3 = ["v2"]  # Bootstrapping (requires V2 as foundation)
+v4 = ["v2"]  # Packed layout (requires V2 backend)
+v5 = ["v2"]  # Privacy-trace collection (requires V2 for wrapped operations)
+v6 = ["v2"]  # parallel_lift GPU acceleration (requires V2 as foundation)
+
+# === V6 Backend Selection (parallel_lift integration) ===
+# By default uses stub crates. To enable real parallel_lift:
+# 1. Clone parallel_lift repo to ../parallel_lift
+# 2. Copy .cargo/config.toml.example to .cargo/config.toml
+v6-cuda = ["v6", "v2-gpu-cuda", "parallel_lift_core", "parallel_lift_cuda"]
+v6-full = ["v6-cuda", "v3"]  # V6 + V3 bootstrapping support
+
+# === V2/V3 Backend Selection ===
+v2-cpu-optimized = ["v2"]     # NTT + Rayon parallelization (30× speedup)
+v2-gpu-cuda = ["v2", "cudarc"]          # CUDA backend (V2/V3, requires NVIDIA GPU)
+v2-gpu-metal = ["v2", "metal", "objc"]  # Metal backend (V2/V3, requires Apple Silicon)
+v2-simd-batched = ["v2"]      # SIMD slot packing (8-16× throughput)
+
+# === Lattice Reduction (Security Analysis) ===
+# Disable for GPU builds on cloud instances to avoid netlib-src/simba build issues
+# Lattice reduction is CPU-only security analysis, not needed for FHE operations
+lattice-reduction = ["nalgebra", "nalgebra-lapack", "blas-src"]
+
+# Combined: all V2 optimizations
+v2-full = ["v2", "v2-cpu-optimized", "v2-gpu-cuda", "v2-simd-batched", "lattice-reduction"]
+
+# Legacy test features (for old test files)
+classical_module_exists = []
+transform_module_exists = []
+numerical_checks_module_exists = []
+vecn_module_exists = []
+
+[dependencies]
+serde           = { version = "1.0", features = ["derive"] }
+serde_json      = "1.0"
+tabwriter       = "1.3"
+wide            = "0.7"
+ndarray  = { version = "0.15" }
+rustfft = "6.1"
+rayon = "1.8"
+rand = "0.8"
+rand_distr = "0.4"  # For Gaussian distribution sampling (FHE)
+rand_chacha = "0.3"  # For fast counter-mode RNG (key generation)
+sha3 = "0.10"  # For SHAKE128/256 (deterministic RNG)
+num-bigint = "0.4"  # For arbitrary precision integers (RNS-CKKS with large Q)
+num-traits = "0.2"  # For Zero/One traits used with BigInt
+num-integer = "0.1"  # For Integer trait (div_floor for exact rescale)
+
+# Metal GPU support (optional, only on macOS with Apple Silicon)
+metal = { version = "0.27", optional = true }
+objc = { version = "0.2", optional = true }
+
+# CUDA GPU support (optional, requires NVIDIA GPU + CUDA toolkit)
+cudarc = { version = "0.11", optional = true, features = ["cuda-12030"] }
+
+# parallel_lift GPU acceleration (optional, for V6)
+# By default, uses stub crates that compile to nothing.
+# To enable real parallel_lift: copy .cargo/config.toml.example to .cargo/config.toml
+parallel_lift_core = { path = "crates/parallel_lift_stubs/parallel_lift_core", optional = true }
+parallel_lift_cuda = { path = "crates/parallel_lift_stubs/parallel_lift_cuda", optional = true }
+
+# Lattice reduction dependencies (optional, for security analysis)
+nalgebra = { version = "0.32", optional = true }
+nalgebra-lapack = { version = "0.24", optional = true }
+
+# Platform-specific BLAS backends (only when lattice-reduction is enabled)
+[target.'cfg(target_os = "macos")'.dependencies]
+blas-src = { version = "0.10", features = ["accelerate"], optional = true }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+blas-src = { version = "0.10", features = ["netlib"], optional = true }
+openblas-src = { version = "0.10", features = ["cblas", "system"], optional = true }
+
+[dev-dependencies]
+criterion      = { version = "0.4", features = ["html_reports"] }
+matrixmultiply = "0.3"
+indicatif      = "0.17"  # Progress bars and spinners
+colored        = "2.0"   # Terminal colors
+unicode-width  = "0.1"   # Better text formatting
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+
+[[bench]]
+name = "clifford_ring_crypto"
+harness = false
+
+[[bench]]
+name = "v1_vs_v2_benchmark"
+harness = false
+
+[[bench]]
+name = "v1_core_ops"
+harness = false
+
+[[bench]]
+name = "v1_geometric_ops"
+harness = false
+
+[[bench]]
+name = "v2_core_ops"
+harness = false
+
+[[bench]]
+name = "v2_geometric_ops"
+harness = false
+
+[[bench]]
+name = "metal_vs_cpu_benchmark"
+harness = false
+[[bench]]
+name = "lattice_battle"
+harness = false
+
+[[bench]]
+name = "v6_speedup_benchmark"
+harness = false

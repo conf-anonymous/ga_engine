@@ -1,0 +1,852 @@
+ Downloading crates ...
+  Downloaded libloading v0.8.9
+  Downloaded cudarc v0.11.9
+   Compiling autocfg v1.5.0
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.22
+   Compiling quote v1.0.44
+   Compiling libm v0.2.16
+   Compiling cfg-if v1.0.4
+   Compiling libc v0.2.180
+   Compiling zerocopy v0.8.37
+   Compiling serde_core v1.0.228
+   Compiling version_check v0.9.5
+   Compiling typenum v1.19.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling serde v1.0.228
+   Compiling zmij v1.0.19
+   Compiling rayon-core v1.13.0
+   Compiling serde_json v1.0.149
+   Compiling either v1.15.0
+   Compiling unicode-width v0.2.2
+   Compiling generic-array v0.14.7
+   Compiling itoa v1.0.17
+   Compiling memchr v2.7.6
+   Compiling num-traits v0.2.19
+   Compiling indexmap v1.9.3
+   Compiling matrixmultiply v0.3.10
+   Compiling hashbrown v0.12.3
+   Compiling ciborium-io v0.2.2
+   Compiling os_str_bytes v6.6.1
+   Compiling regex-syntax v0.8.8
+   Compiling bytemuck v1.25.0
+   Compiling plotters-backend v0.3.7
+   Compiling rawpointer v0.2.1
+   Compiling portable-atomic v1.13.1
+   Compiling crossbeam-epoch v0.9.18
+   Compiling strength_reduce v0.2.4
+   Compiling cudarc v0.11.9
+   Compiling syn v2.0.114
+   Compiling plotters-svg v0.3.7
+   Compiling clap_lex v0.2.4
+   Compiling crossbeam-deque v0.8.6
+   Compiling safe_arch v0.7.4
+   Compiling itertools v0.10.5
+   Compiling getrandom v0.2.17
+   Compiling libloading v0.8.9
+   Compiling rand_core v0.6.4
+   Compiling crypto-common v0.1.7
+   Compiling block-buffer v0.10.4
+   Compiling cast v0.3.0
+   Compiling lazy_static v1.5.0
+   Compiling digest v0.10.7
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+   Compiling keccak v0.1.5
+   Compiling once_cell v1.21.3
+   Compiling textwrap v0.16.2
+   Compiling same-file v1.0.6
+   Compiling bitflags v1.3.2
+   Compiling rayon v1.11.0
+   Compiling console v0.15.11
+   Compiling walkdir v2.5.0
+   Compiling sha3 v0.10.8
+   Compiling num-integer v0.1.46
+   Compiling num-complex v0.4.6
+   Compiling regex-automata v0.4.13
+   Compiling plotters v0.3.7
+   Compiling transpose v0.2.3
+   Compiling primal-check v0.3.4
+   Compiling num-bigint v0.4.6
+   Compiling clap v3.2.25
+   Compiling criterion-plot v0.5.0
+   Compiling ndarray v0.15.6
+   Compiling rustfft v6.4.1
+   Compiling wide v0.7.33
+   Compiling atty v0.2.14
+   Compiling tabwriter v1.4.1
+   Compiling oorandom v11.1.5
+   Compiling number_prefix v0.4.0
+   Compiling anes v0.1.6
+   Compiling indicatif v0.17.11
+   Compiling regex v1.12.2
+   Compiling colored v2.2.0
+   Compiling unicode-width v0.1.14
+   Compiling zerocopy-derive v0.8.37
+   Compiling serde_derive v1.0.228
+   Compiling tinytemplate v1.2.1
+   Compiling ppv-lite86 v0.2.21
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+   Compiling rand_chacha v0.3.1
+   Compiling ciborium v0.2.2
+   Compiling rand v0.8.5
+   Compiling criterion v0.4.0
+   Compiling rand_distr v0.4.3
+    Finished `release` profile [optimized] target(s) in 22.29s
+     Running `target/release/examples/bench_cuda_bootstrap`
+╔════════════════════════════════════════════════════════════════════════╗
+║          CUDA GPU Bootstrap Benchmark (V3 CKKS)                       ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+[1/6] Initializing parameters...
+Generating V3 CUDA GPU full bootstrap parameters (N=1024, 30 primes)...
+Generating 1 NTT-friendly primes (~60-bit) for N=1024...
+  Formula: q = k × 2048 + 1
+  Target range: [576460752303423488, 1152921504606846976)
+  Found 1/1 primes (latest: q=576460752303439873, k=281474976710664)
+✓ Generated 1 NTT-friendly primes successfully!
+
+Generating 29 NTT-friendly primes (~45-bit) for N=1024...
+  Formula: q = k × 2048 + 1
+  Target range: [17592186044416, 35184372088832)
+  Found 5/29 primes (latest: q=17592186112001, k=8589934625)
+  Found 10/29 primes (latest: q=17592186204161, k=8589934670)
+  Found 15/29 primes (latest: q=17592186359809, k=8589934746)
+  Found 20/29 primes (latest: q=17592186413057, k=8589934772)
+  Found 25/29 primes (latest: q=17592186634241, k=8589934880)
+  Found 29/29 primes (latest: q=17592186728449, k=8589934926)
+✓ Generated 29 NTT-friendly primes successfully!
+
+  Generated 30 NTT-friendly primes
+  N = 1024, num_primes = 30
+  Scale = 2^44 (matched to prime size)
+  Level budget: CoeffToSlot(9) + EvalMod(9) + SlotToCoeff(9) = 27 levels used
+  Ring dimension (N): 1024
+  Number of slots: 512
+  Number of primes: 30
+  Max level: 29
+  Warmup iterations: 1
+  Benchmark iterations: 3
+
+[2/6] Initializing CUDA contexts...
+CUDA Device: NVIDIA GeForce RTX 4090
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 30 primes...
+  [CUDA] Prime 0: q=576460752303439873, psi=208928634629474735, omega=471554836584496501
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=17592186062849, psi=9483734021657, omega=15303931801045
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=17592186064897, psi=6367868744110, omega=16884722405918
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 5/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 10/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 15/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 20/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 25/30 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 30/30 NTT contexts
+  [CUDA CKKS] NTT contexts created in 8.40s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 960KB twiddles, psi powers, and 30 moduli on GPU in 0.013s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA Rotation Context                 ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Loading Galois CUDA kernels...
+  Galois kernels loaded
+
+Precomputing rotation maps for common rotations...
+  Precomputed 18 rotation maps
+
+
+[3/6] Generating secret key...
+  Secret key generated (binary)
+
+[4/6] Generating rotation keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Rotation Keys                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Gadget decomposition parameters:
+  Base w: 2^16 = 65536
+  Number of digits (dnum): 113
+  Total modulus bits: 1800
+
+  Generating rotation keys for 9 FFT levels: [1, 2, 4, 8, 16, 32, 64, 128, 256]
+Generating rotation key for rotation by 1 slots...
+  Galois element g: 5
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 2 slots...
+  Galois element g: 25
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 4 slots...
+  Galois element g: 625
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 8 slots...
+  Galois element g: 1505
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 16 slots...
+  Galois element g: 1985
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 32 slots...
+  Galois element g: 1921
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 64 slots...
+  Galois element g: 1793
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 128 slots...
+  Galois element g: 1537
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+Generating rotation key for rotation by 256 slots...
+  Galois element g: 1025
+  Generated 5/113 key switching components
+  Generated 10/113 key switching components
+  Generated 15/113 key switching components
+  Generated 20/113 key switching components
+  Generated 25/113 key switching components
+  Generated 30/113 key switching components
+  Generated 35/113 key switching components
+  Generated 40/113 key switching components
+  Generated 45/113 key switching components
+  Generated 50/113 key switching components
+  Generated 55/113 key switching components
+  Generated 60/113 key switching components
+  Generated 65/113 key switching components
+  Generated 70/113 key switching components
+  Generated 75/113 key switching components
+  Generated 80/113 key switching components
+  Generated 85/113 key switching components
+  Generated 90/113 key switching components
+  Generated 95/113 key switching components
+  Generated 100/113 key switching components
+  Generated 105/113 key switching components
+  Generated 110/113 key switching components
+  Generated 113/113 key switching components
+  Rotation key generated
+
+  Rotation keys: 13.66s (9 keys)
+
+[5/6] Generating relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 30
+  Number of gadget digits (dnum): 86
+
+Generating relinearization key...
+  Generated 5/86 key switching components
+  Generated 10/86 key switching components
+  Generated 15/86 key switching components
+  Generated 20/86 key switching components
+  Generated 25/86 key switching components
+  Generated 30/86 key switching components
+  Generated 35/86 key switching components
+  Generated 40/86 key switching components
+  Generated 45/86 key switching components
+  Generated 50/86 key switching components
+  Generated 55/86 key switching components
+  Generated 60/86 key switching components
+  Generated 65/86 key switching components
+  Generated 70/86 key switching components
+  Generated 75/86 key switching components
+  Generated 80/86 key switching components
+  Generated 85/86 key switching components
+  Generated 86/86 key switching components
+  Relinearization key generated in 1.25s
+
+  Relinearization keys: 1.25s
+
+[6/6] Creating bootstrap context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║         CUDA GPU Bootstrap Context Initialized               ║
+╚═══════════════════════════════════════════════════════════════╝
+
+
+╔════════════════════════════════════════════════════════════════════════╗
+║                      RUNNING BOOTSTRAP BENCHMARKS                      ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Input ciphertext level: 2 (simulating depleted noise budget)
+
+Warming up (1 iteration(s))...
+
+╔═══════════════════════════════════════════════════════════════╗
+║              CUDA GPU Bootstrap Pipeline                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Modulus raise
+  Modulus raised in 0.00s
+
+Step 2: CoeffToSlot transformation
+  [CUDA CoeffToSlot] N=1024, slots=512, FFT levels=9
+    Level 1/9: rotation by ±1, current level=29
+      → After butterfly: level=28, scale=1.76e13
+    Level 2/9: rotation by ±2, current level=28
+      → After butterfly: level=27, scale=1.76e13
+    Level 3/9: rotation by ±4, current level=27
+      → After butterfly: level=26, scale=1.76e13
+    Level 4/9: rotation by ±8, current level=26
+      → After butterfly: level=25, scale=1.76e13
+    Level 5/9: rotation by ±16, current level=25
+      → After butterfly: level=24, scale=1.76e13
+    Level 6/9: rotation by ±32, current level=24
+      → After butterfly: level=23, scale=1.76e13
+    Level 7/9: rotation by ±64, current level=23
+      → After butterfly: level=22, scale=1.76e13
+    Level 8/9: rotation by ±128, current level=22
+      → After butterfly: level=21, scale=1.76e13
+    Level 9/9: rotation by ±256, current level=21
+      → After butterfly: level=20, scale=1.76e13
+  [CUDA CoeffToSlot] Complete: consumed 9 levels
+  CoeffToSlot completed in 0.39s
+
+Step 3: EvalMod (modular reduction)
+  [CUDA EvalMod] Starting modular reduction
+    Modulus: 17592186413057
+    Sine degree: 23
+    Relinearization: ENABLED (exact multiplication)
+    [1/3] Scaling input by 2π/q...
+      → Scaled: level=19, scale=1.76e13
+    [2/3] Evaluating degree-23 sine polynomial...
+      Evaluating polynomial of degree 23...
+        Using BSGS: baby_steps=5, giant_steps=5
+      → Sine evaluated: level=12, scale=3.37e-80
+    [3/3] Computing final result: x - (q/2π)·sin(x)...
+  [CUDA EvalMod] Complete: level=11, scale=1.09e-106
+  EvalMod completed in 12.09s
+
+Step 4: SlotToCoeff transformation
+  [CUDA SlotToCoeff] N=1024, slots=512, inverse FFT levels=9
+    Level 1/9: rotation by ±256, current level=11
+      → After inverse butterfly: level=10, scale=1.09e-106
+    Level 2/9: rotation by ±128, current level=10
+      → After inverse butterfly: level=9, scale=1.09e-106
+    Level 3/9: rotation by ±64, current level=9
+      → After inverse butterfly: level=8, scale=1.09e-106
+    Level 4/9: rotation by ±32, current level=8
+      → After inverse butterfly: level=7, scale=1.09e-106
+    Level 5/9: rotation by ±16, current level=7
+      → After inverse butterfly: level=6, scale=1.09e-106
+    Level 6/9: rotation by ±8, current level=6
+      → After inverse butterfly: level=5, scale=1.09e-106
+    Level 7/9: rotation by ±4, current level=5
+      → After inverse butterfly: level=4, scale=1.09e-106
+    Level 8/9: rotation by ±2, current level=4
+      → After inverse butterfly: level=3, scale=1.09e-106
+    Level 9/9: rotation by ±1, current level=3
+      → After inverse butterfly: level=2, scale=1.09e-106
+  [CUDA SlotToCoeff] Complete: consumed 9 levels
+  SlotToCoeff completed in 0.21s
+
+Step 5: Modulus switch
+  Modulus switched in 0.00s
+
+═══════════════════════════════════════════════════════════════
+Bootstrap completed in 12.69s
+═══════════════════════════════════════════════════════════════
+
+  Warmup 1: 12.69s
+
+Running benchmark (3 iterations)...
+
+--- Iteration 1 ---
+
+╔═══════════════════════════════════════════════════════════════╗
+║              CUDA GPU Bootstrap Pipeline                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Modulus raise
+  Modulus raised in 0.00s
+
+Step 2: CoeffToSlot transformation
+  [CUDA CoeffToSlot] N=1024, slots=512, FFT levels=9
+    Level 1/9: rotation by ±1, current level=29
+      → After butterfly: level=28, scale=1.76e13
+    Level 2/9: rotation by ±2, current level=28
+      → After butterfly: level=27, scale=1.76e13
+    Level 3/9: rotation by ±4, current level=27
+      → After butterfly: level=26, scale=1.76e13
+    Level 4/9: rotation by ±8, current level=26
+      → After butterfly: level=25, scale=1.76e13
+    Level 5/9: rotation by ±16, current level=25
+      → After butterfly: level=24, scale=1.76e13
+    Level 6/9: rotation by ±32, current level=24
+      → After butterfly: level=23, scale=1.76e13
+    Level 7/9: rotation by ±64, current level=23
+      → After butterfly: level=22, scale=1.76e13
+    Level 8/9: rotation by ±128, current level=22
+      → After butterfly: level=21, scale=1.76e13
+    Level 9/9: rotation by ±256, current level=21
+      → After butterfly: level=20, scale=1.76e13
+  [CUDA CoeffToSlot] Complete: consumed 9 levels
+  CoeffToSlot completed in 0.37s
+
+Step 3: EvalMod (modular reduction)
+  [CUDA EvalMod] Starting modular reduction
+    Modulus: 17592186413057
+    Sine degree: 23
+    Relinearization: ENABLED (exact multiplication)
+    [1/3] Scaling input by 2π/q...
+      → Scaled: level=19, scale=1.76e13
+    [2/3] Evaluating degree-23 sine polynomial...
+      Evaluating polynomial of degree 23...
+        Using BSGS: baby_steps=5, giant_steps=5
+      → Sine evaluated: level=12, scale=3.37e-80
+    [3/3] Computing final result: x - (q/2π)·sin(x)...
+  [CUDA EvalMod] Complete: level=11, scale=1.09e-106
+  EvalMod completed in 11.98s
+
+Step 4: SlotToCoeff transformation
+  [CUDA SlotToCoeff] N=1024, slots=512, inverse FFT levels=9
+    Level 1/9: rotation by ±256, current level=11
+      → After inverse butterfly: level=10, scale=1.09e-106
+    Level 2/9: rotation by ±128, current level=10
+      → After inverse butterfly: level=9, scale=1.09e-106
+    Level 3/9: rotation by ±64, current level=9
+      → After inverse butterfly: level=8, scale=1.09e-106
+    Level 4/9: rotation by ±32, current level=8
+      → After inverse butterfly: level=7, scale=1.09e-106
+    Level 5/9: rotation by ±16, current level=7
+      → After inverse butterfly: level=6, scale=1.09e-106
+    Level 6/9: rotation by ±8, current level=6
+      → After inverse butterfly: level=5, scale=1.09e-106
+    Level 7/9: rotation by ±4, current level=5
+      → After inverse butterfly: level=4, scale=1.09e-106
+    Level 8/9: rotation by ±2, current level=4
+      → After inverse butterfly: level=3, scale=1.09e-106
+    Level 9/9: rotation by ±1, current level=3
+      → After inverse butterfly: level=2, scale=1.09e-106
+  [CUDA SlotToCoeff] Complete: consumed 9 levels
+  SlotToCoeff completed in 0.21s
+
+Step 5: Modulus switch
+  Modulus switched in 0.00s
+
+═══════════════════════════════════════════════════════════════
+Bootstrap completed in 12.56s
+═══════════════════════════════════════════════════════════════
+
+  Total: 12.56s (input level: 2, output level: 2)
+
+--- Iteration 2 ---
+
+╔═══════════════════════════════════════════════════════════════╗
+║              CUDA GPU Bootstrap Pipeline                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Modulus raise
+  Modulus raised in 0.00s
+
+Step 2: CoeffToSlot transformation
+  [CUDA CoeffToSlot] N=1024, slots=512, FFT levels=9
+    Level 1/9: rotation by ±1, current level=29
+      → After butterfly: level=28, scale=1.76e13
+    Level 2/9: rotation by ±2, current level=28
+      → After butterfly: level=27, scale=1.76e13
+    Level 3/9: rotation by ±4, current level=27
+      → After butterfly: level=26, scale=1.76e13
+    Level 4/9: rotation by ±8, current level=26
+      → After butterfly: level=25, scale=1.76e13
+    Level 5/9: rotation by ±16, current level=25
+      → After butterfly: level=24, scale=1.76e13
+    Level 6/9: rotation by ±32, current level=24
+      → After butterfly: level=23, scale=1.76e13
+    Level 7/9: rotation by ±64, current level=23
+      → After butterfly: level=22, scale=1.76e13
+    Level 8/9: rotation by ±128, current level=22
+      → After butterfly: level=21, scale=1.76e13
+    Level 9/9: rotation by ±256, current level=21
+      → After butterfly: level=20, scale=1.76e13
+  [CUDA CoeffToSlot] Complete: consumed 9 levels
+  CoeffToSlot completed in 0.40s
+
+Step 3: EvalMod (modular reduction)
+  [CUDA EvalMod] Starting modular reduction
+    Modulus: 17592186413057
+    Sine degree: 23
+    Relinearization: ENABLED (exact multiplication)
+    [1/3] Scaling input by 2π/q...
+      → Scaled: level=19, scale=1.76e13
+    [2/3] Evaluating degree-23 sine polynomial...
+      Evaluating polynomial of degree 23...
+        Using BSGS: baby_steps=5, giant_steps=5
+      → Sine evaluated: level=12, scale=3.37e-80
+    [3/3] Computing final result: x - (q/2π)·sin(x)...
+  [CUDA EvalMod] Complete: level=11, scale=1.09e-106
+  EvalMod completed in 11.95s
+
+Step 4: SlotToCoeff transformation
+  [CUDA SlotToCoeff] N=1024, slots=512, inverse FFT levels=9
+    Level 1/9: rotation by ±256, current level=11
+      → After inverse butterfly: level=10, scale=1.09e-106
+    Level 2/9: rotation by ±128, current level=10
+      → After inverse butterfly: level=9, scale=1.09e-106
+    Level 3/9: rotation by ±64, current level=9
+      → After inverse butterfly: level=8, scale=1.09e-106
+    Level 4/9: rotation by ±32, current level=8
+      → After inverse butterfly: level=7, scale=1.09e-106
+    Level 5/9: rotation by ±16, current level=7
+      → After inverse butterfly: level=6, scale=1.09e-106
+    Level 6/9: rotation by ±8, current level=6
+      → After inverse butterfly: level=5, scale=1.09e-106
+    Level 7/9: rotation by ±4, current level=5
+      → After inverse butterfly: level=4, scale=1.09e-106
+    Level 8/9: rotation by ±2, current level=4
+      → After inverse butterfly: level=3, scale=1.09e-106
+    Level 9/9: rotation by ±1, current level=3
+      → After inverse butterfly: level=2, scale=1.09e-106
+  [CUDA SlotToCoeff] Complete: consumed 9 levels
+  SlotToCoeff completed in 0.21s
+
+Step 5: Modulus switch
+  Modulus switched in 0.00s
+
+═══════════════════════════════════════════════════════════════
+Bootstrap completed in 12.56s
+═══════════════════════════════════════════════════════════════
+
+  Total: 12.56s (input level: 2, output level: 2)
+
+--- Iteration 3 ---
+
+╔═══════════════════════════════════════════════════════════════╗
+║              CUDA GPU Bootstrap Pipeline                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Modulus raise
+  Modulus raised in 0.00s
+
+Step 2: CoeffToSlot transformation
+  [CUDA CoeffToSlot] N=1024, slots=512, FFT levels=9
+    Level 1/9: rotation by ±1, current level=29
+      → After butterfly: level=28, scale=1.76e13
+    Level 2/9: rotation by ±2, current level=28
+      → After butterfly: level=27, scale=1.76e13
+    Level 3/9: rotation by ±4, current level=27
+      → After butterfly: level=26, scale=1.76e13
+    Level 4/9: rotation by ±8, current level=26
+      → After butterfly: level=25, scale=1.76e13
+    Level 5/9: rotation by ±16, current level=25
+      → After butterfly: level=24, scale=1.76e13
+    Level 6/9: rotation by ±32, current level=24
+      → After butterfly: level=23, scale=1.76e13
+    Level 7/9: rotation by ±64, current level=23
+      → After butterfly: level=22, scale=1.76e13
+    Level 8/9: rotation by ±128, current level=22
+      → After butterfly: level=21, scale=1.76e13
+    Level 9/9: rotation by ±256, current level=21
+      → After butterfly: level=20, scale=1.76e13
+  [CUDA CoeffToSlot] Complete: consumed 9 levels
+  CoeffToSlot completed in 0.38s
+
+Step 3: EvalMod (modular reduction)
+  [CUDA EvalMod] Starting modular reduction
+    Modulus: 17592186413057
+    Sine degree: 23
+    Relinearization: ENABLED (exact multiplication)
+    [1/3] Scaling input by 2π/q...
+      → Scaled: level=19, scale=1.76e13
+    [2/3] Evaluating degree-23 sine polynomial...
+      Evaluating polynomial of degree 23...
+        Using BSGS: baby_steps=5, giant_steps=5
+      → Sine evaluated: level=12, scale=3.37e-80
+    [3/3] Computing final result: x - (q/2π)·sin(x)...
+  [CUDA EvalMod] Complete: level=11, scale=1.09e-106
+  EvalMod completed in 11.95s
+
+Step 4: SlotToCoeff transformation
+  [CUDA SlotToCoeff] N=1024, slots=512, inverse FFT levels=9
+    Level 1/9: rotation by ±256, current level=11
+      → After inverse butterfly: level=10, scale=1.09e-106
+    Level 2/9: rotation by ±128, current level=10
+      → After inverse butterfly: level=9, scale=1.09e-106
+    Level 3/9: rotation by ±64, current level=9
+      → After inverse butterfly: level=8, scale=1.09e-106
+    Level 4/9: rotation by ±32, current level=8
+      → After inverse butterfly: level=7, scale=1.09e-106
+    Level 5/9: rotation by ±16, current level=7
+      → After inverse butterfly: level=6, scale=1.09e-106
+    Level 6/9: rotation by ±8, current level=6
+      → After inverse butterfly: level=5, scale=1.09e-106
+    Level 7/9: rotation by ±4, current level=5
+      → After inverse butterfly: level=4, scale=1.09e-106
+    Level 8/9: rotation by ±2, current level=4
+      → After inverse butterfly: level=3, scale=1.09e-106
+    Level 9/9: rotation by ±1, current level=3
+      → After inverse butterfly: level=2, scale=1.09e-106
+  [CUDA SlotToCoeff] Complete: consumed 9 levels
+  SlotToCoeff completed in 0.20s
+
+Step 5: Modulus switch
+  Modulus switched in 0.00s
+
+═══════════════════════════════════════════════════════════════
+Bootstrap completed in 12.53s
+═══════════════════════════════════════════════════════════════
+
+  Total: 12.53s (input level: 2, output level: 2)
+
+╔════════════════════════════════════════════════════════════════════════╗
+║                      BOOTSTRAP BENCHMARK RESULTS                       ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────┬──────────────┬──────────────┬──────────────┬──────────────┐
+│ Phase                  │   Avg (s)    │   Min (s)    │   Max (s)    │   Std (s)    │
+├────────────────────────┼──────────────┼──────────────┼──────────────┼──────────────┤
+│ Full Bootstrap         │       12.549 │       12.531 │       12.561 │        0.013 │
+└────────────────────────┴──────────────┴──────────────┴──────────────┴──────────────┘
+
+Configuration:
+  Ring dimension (N): 1024
+  Number of slots: 512
+  Number of primes: 30
+  Input level: 2
+  Bootstrap iterations: 3
+
+Performance Summary:
+  Average bootstrap time: 12.55s
+  Bootstraps per minute: 4.8
+
+Typical Phase Breakdown:
+  1. Modulus Raise:   < 0.01s (negligible)
+  2. CoeffToSlot:     ~0.15s (linear transforms + rotations)
+  3. EvalMod:         ~12.3s (polynomial approximation of sin, dominant)
+  4. SlotToCoeff:     ~0.04s (linear transforms + rotations)
+  5. Modulus Switch:  < 0.01s (negligible)
+
+╔════════════════════════════════════════════════════════════════════════╗
+║                      BENCHMARK COMPLETE                                ║
+╚════════════════════════════════════════════════════════════════════════╝

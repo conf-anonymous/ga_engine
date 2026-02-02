@@ -1,0 +1,81 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+warning: unused imports: `multiply_ciphertexts_gpu` and `newton_raphson_inverse_gpu`
+  --> examples/bench_division_with_bootstrap.rs:38:65
+   |
+38 | use ga_engine::clifford_fhe_v2::backends::gpu_cuda::inversion::{newton_raphson_inverse_gpu, scalar_division_gpu, multiply_ciphertexts_gpu};
+   |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^                       ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no method named `clone` found for struct `CudaRelinKeys` in the current scope
+   --> examples/bench_division_with_bootstrap.rs:142:29
+    |
+142 |         Arc::new(relin_keys.clone()),
+    |                             ^^^^^ method not found in `CudaRelinKeys`
+
+error[E0308]: mismatched types
+    --> examples/bench_division_with_bootstrap.rs:198:50
+     |
+ 198 |     let pt_result = ckks_ctx.decrypt(&ct_result, &secret_key_to_cuda_format(&secret_key, num_primes))?;
+     |                              -------             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&SecretKey`, found `&Vec<u64>`
+     |                              |
+     |                              arguments to this method are incorrect
+     |
+     = note: expected reference `&SecretKey`
+                found reference `&Vec<u64>`
+note: method defined here
+    --> /root/ga_engine/src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs:2276:12
+     |
+2276 |     pub fn decrypt(
+     |            ^^^^^^^
+
+error[E0308]: mismatched types
+    --> examples/bench_division_with_bootstrap.rs:270:50
+     |
+ 270 |     let pt_final = ckks_ctx.decrypt(&ct_current, &secret_key_to_cuda_format(&secret_key, num_primes))?;
+     |                             -------              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&SecretKey`, found `&Vec<u64>`
+     |                             |
+     |                             arguments to this method are incorrect
+     |
+     = note: expected reference `&SecretKey`
+                found reference `&Vec<u64>`
+note: method defined here
+    --> /root/ga_engine/src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs:2276:12
+     |
+2276 |     pub fn decrypt(
+     |            ^^^^^^^
+
+error[E0308]: mismatched types
+    --> examples/bench_division_with_bootstrap.rs:375:50
+     |
+ 375 |     let pt_final = ckks_ctx.decrypt(&ct_current, &secret_key_to_cuda_format(&secret_key, num_primes))?;
+     |                             -------              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `&SecretKey`, found `&Vec<u64>`
+     |                             |
+     |                             arguments to this method are incorrect
+     |
+     = note: expected reference `&SecretKey`
+                found reference `&Vec<u64>`
+note: method defined here
+    --> /root/ga_engine/src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs:2276:12
+     |
+2276 |     pub fn decrypt(
+     |            ^^^^^^^
+
+warning: unused variable: `secret_key`
+   --> examples/bench_division_with_bootstrap.rs:456:5
+    |
+456 |     secret_key: &[u64],
+    |     ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_secret_key`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `num_primes`
+   --> examples/bench_division_with_bootstrap.rs:468:42
+    |
+468 | fn secret_key_to_cuda_format(sk: &[u64], num_primes: usize) -> Vec<u64> {
+    |                                          ^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_num_primes`
+
+Some errors have detailed explanations: E0308, E0599.
+For more information about an error, try `rustc --explain E0308`.
+warning: `ga_engine` (example "bench_division_with_bootstrap") generated 3 warnings
+error: could not compile `ga_engine` (example "bench_division_with_bootstrap") due to 4 previous errors; 3 warnings emitted

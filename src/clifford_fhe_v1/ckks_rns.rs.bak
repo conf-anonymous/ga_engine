@@ -1,0 +1,458 @@
+//! RNS-CKKS encryption scheme for Clifford algebra
+//!
+//! This is the RNS (Residue Number System) version of CKKS that enables
+//! proper homomorphic multiplication with rescaling.
+//!
+//! Key differences from single-modulus CKKS:
+//! - Coefficients stored as RNS tuples instead of single i64
+//! - Rescaling drops a prime from the modulus chain
+//! - Supports larger effective moduli (Q = q₀ · q₁ · ... can be 2^200+)
+
+use crate::clifford_fhe::keys::{EvaluationKey, PublicKey, SecretKey}; // Old single-modulus keys
+use crate::clifford_fhe::keys_rns::{RnsPublicKey, RnsSecretKey, RnsEvaluationKey}; // New RNS keys
+use crate::clifford_fhe::params::CliffordFHEParams;
+use crate::clifford_fhe::rns::{RnsPolynomial, rns_add, rns_sub, rns_multiply as rns_poly_multiply, rns_rescale_exact, precompute_rescale_inv, decompose_base_pow2};
+
+/// Helper function for polynomial multiplication modulo q with negacyclic reduction
+fn polynomial_multiply_ntt(a: &[i64], b: &[i64], q: i64, n: usize) -> Vec<i64> {
+    // Temporary naive implementation with i128 to avoid overflow
+    // TODO: Use actual NTT for efficiency
+    let mut result = vec![0i128; n];
+    let q128 = q as i128;
+
+    for i in 0..n {
+        for j in 0..n {
+            let idx = i + j;
+            let prod = (a[i] as i128) * (b[j] as i128) % q128;
+            if idx < n {
+                result[idx] = (result[idx] + prod) % q128;
+            } else {
+                // x^n = -1 reduction (negacyclic)
+                let wrapped_idx = idx % n;
+                result[wrapped_idx] = (result[wrapped_idx] - prod) % q128;
+            }
+        }
+    }
+
+    result.iter().map(|&x| ((x % q128 + q128) % q128) as i64).collect()
+}
+
+/// RNS-CKKS plaintext (polynomial in RNS representation)
+#[derive(Debug, Clone)]
+pub struct RnsPlaintext {
+    /// Polynomial coefficients in RNS form
+    pub coeffs: RnsPolynomial,
+    /// Scaling factor used for encoding
+    pub scale: f64,
+    /// Ring dimension
+    pub n: usize,
+}
+
+impl RnsPlaintext {
+    /// Create plaintext from RNS polynomial
+    pub fn new(coeffs: RnsPolynomial, scale: f64) -> Self {
+        let n = coeffs.n;
+        Self { coeffs, scale, n }
+    }
+
+    /// Create plaintext from regular coefficients
+    pub fn from_coeffs(coeffs: Vec<i64>, scale: f64, primes: &[i64], level: usize) -> Self {
+        let n = coeffs.len();
+        let rns_coeffs = RnsPolynomial::from_coeffs(&coeffs, primes, n, level);
+        Self::new(rns_coeffs, scale)
+    }
+
+    /// Convert to regular coefficients using CRT (full reconstruction)
+    ///
+    /// WARNING: This can overflow if Q = ∏qᵢ > i64_MAX!
+    /// Use to_coeffs_single_prime() instead for CKKS decoding.
+    pub fn to_coeffs(&self, primes: &[i64]) -> Vec<i64> {
+        self.coeffs.to_coeffs(primes)
+    }
+
+    /// Convert to regular coefficients using single prime (recommended for CKKS)
+    ///
+    /// Extracts coefficients modulo the first prime (largest/base prime).
+    /// This avoids CRT overflow and is sufficient for CKKS decoding since
+    /// message + noise << any single prime.
+    ///
+    /// # Arguments
+    /// * `primes` - Prime chain (will use first prime)
+    pub fn to_coeffs_single_prime(&self, primes: &[i64]) -> Vec<i64> {
+        let prime_idx = 0; // Use first prime (largest, most precision)
+        let prime_value = primes[prime_idx];
+        self.coeffs.to_coeffs_single_prime(prime_idx, prime_value)
+    }
+}
+
+/// RNS-CKKS ciphertext
+///
+/// A ciphertext is a pair (c0, c1) of RNS polynomials in R_q
+/// Decryption: m ≈ c0 + c1*s (mod Q) where Q = q₀ · q₁ · ...
+#[derive(Debug, Clone)]
+pub struct RnsCiphertext {
+    /// First component (RNS polynomial)
+    pub c0: RnsPolynomial,
+    /// Second component (RNS polynomial)
+    pub c1: RnsPolynomial,
+    /// Current level (determines which primes are active)
+    /// Level 0: all primes [q₀, q₁, q₂, ...]
+    /// Level 1: dropped last prime [q₀, q₁, ...]
+    pub level: usize,
+    /// Scaling factor (carries through homomorphic operations)
+    pub scale: f64,
+    /// Ring dimension
+    pub n: usize,
+}
+
+impl RnsCiphertext {
+    /// Create new RNS ciphertext
+    pub fn new(c0: RnsPolynomial, c1: RnsPolynomial, level: usize, scale: f64) -> Self {
+        let n = c0.n;
+        assert_eq!(c1.n, n, "Ciphertext components must have same length");
+        assert_eq!(c0.level, level, "c0 level mismatch");
+        assert_eq!(c1.level, level, "c1 level mismatch");
+        Self {
+            c0,
+            c1,
+            level,
+            scale,
+            n,
+        }
+    }
+}
+
+/// Encrypt plaintext using public key (RNS version)
+///
+/// RNS-CKKS encryption:
+/// 1. Sample random r, e0, e1 from error distribution
+/// 2. Convert to RNS representation
+/// 3. Compute (all in RNS):
+///    c0 = b*r + e0 + m
+///    c1 = a*r + e1
+///
+/// # Arguments
+/// * `pk` - RNS public key
+/// * `pt` - Plaintext in RNS form
+/// * `params` - CKKS parameters with modulus chain
+pub fn rns_encrypt(pk: &RnsPublicKey, pt: &RnsPlaintext, params: &CliffordFHEParams) -> RnsCiphertext {
+    use rand::{thread_rng, Rng};
+    use rand_distr::{Distribution, Normal};
+
+    let n = params.n;
+    let primes = &params.moduli;
+    let num_primes = primes.len();
+    let mut rng = thread_rng();
+
+    // Sample ternary random polynomial r ∈ {-1, 0, 1}^n
+    let r: Vec<i64> = (0..n)
+        .map(|_| {
+            let val: f64 = rng.gen();
+            if val < 0.33 {
+                -1
+            } else if val < 0.66 {
+                0
+            } else {
+                1
+            }
+        })
+        .collect();
+
+    // Sample errors e0, e1 from Gaussian distribution
+    let normal = Normal::new(0.0, params.error_std).unwrap();
+    let e0: Vec<i64> = (0..n).map(|_| normal.sample(&mut rng).round() as i64).collect();
+    let e1: Vec<i64> = (0..n).map(|_| normal.sample(&mut rng).round() as i64).collect();
+
+    // Convert to RNS
+    let r_rns = RnsPolynomial::from_coeffs(&r, primes, n, 0);
+    let e0_rns = RnsPolynomial::from_coeffs(&e0, primes, n, 0);
+    let e1_rns = RnsPolynomial::from_coeffs(&e1, primes, n, 0);
+
+    // Use RNS public key directly (already in RNS form!)
+    // Compute b*r using RNS multiplication
+    let br = rns_poly_multiply(&pk.b, &r_rns, primes, polynomial_multiply_ntt);
+
+    // Compute a*r using RNS multiplication
+    let ar = rns_poly_multiply(&pk.a, &r_rns, primes, polynomial_multiply_ntt);
+
+    // c0 = b*r + e0 + m
+    let c0_temp = rns_add(&br, &e0_rns, primes);
+    let c0 = rns_add(&c0_temp, &pt.coeffs, primes);
+
+    // c1 = a*r + e1
+    let c1 = rns_add(&ar, &e1_rns, primes);
+
+    RnsCiphertext::new(c0, c1, 0, pt.scale)
+}
+
+/// Decrypt ciphertext using secret key (RNS version)
+///
+/// RNS-CKKS decryption:
+/// m' = c0 + c1*s (all in RNS, then convert back)
+///
+/// # Arguments
+/// * `sk` - RNS secret key
+/// * `ct` - Ciphertext in RNS form
+/// * `params` - CKKS parameters
+pub fn rns_decrypt(sk: &RnsSecretKey, ct: &RnsCiphertext, params: &CliffordFHEParams) -> RnsPlaintext {
+    let n = ct.n;
+    let primes = &params.moduli;
+    let num_primes = primes.len() - ct.level; // Active primes at this level
+    let active_primes = &primes[..num_primes];
+
+    // Use RNS secret key directly
+    // Note: If we've rescaled, the secret key needs to be at the same level
+    // For level > 0, we need to use only the first num_primes components
+    let sk_at_level = if ct.level > 0 {
+        // Extract only active primes from secret key
+        let mut rns_coeffs = vec![vec![0i64; num_primes]; n];
+        for i in 0..n {
+            for j in 0..num_primes {
+                rns_coeffs[i][j] = sk.coeffs.rns_coeffs[i][j];
+            }
+        }
+        RnsPolynomial::new(rns_coeffs, n, ct.level)
+    } else {
+        sk.coeffs.clone()
+    };
+
+    // Compute c1*s using RNS multiplication
+    let c1s = rns_poly_multiply(&ct.c1, &sk_at_level, active_primes, polynomial_multiply_ntt);
+
+    // m' = c0 - c1*s (because pk.b = a*s + e, so we need subtraction)
+    let m_prime = rns_sub(&ct.c0, &c1s, active_primes);
+
+    RnsPlaintext::new(m_prime, ct.scale)
+}
+
+/// Homomorphic addition (RNS version)
+///
+/// Simply add the RNS polynomials component-wise.
+/// Scales must match!
+pub fn rns_add_ciphertexts(
+    ct1: &RnsCiphertext,
+    ct2: &RnsCiphertext,
+    params: &CliffordFHEParams,
+) -> RnsCiphertext {
+    assert_eq!(ct1.level, ct2.level, "Ciphertexts must be at same level");
+    assert_eq!(ct1.n, ct2.n, "Ciphertexts must have same dimension");
+
+    // TODO: Handle scale mismatch (need to rescale to match)
+    // For now, require same scale
+    assert!((ct1.scale - ct2.scale).abs() < 1e-6, "Scales must match (for now)");
+
+    let primes = &params.moduli;
+    let num_primes = primes.len() - ct1.level;
+    let active_primes = &primes[..num_primes];
+
+    let c0 = rns_add(&ct1.c0, &ct2.c0, active_primes);
+    let c1 = rns_add(&ct1.c1, &ct2.c1, active_primes);
+
+    RnsCiphertext::new(c0, c1, ct1.level, ct1.scale)
+}
+
+/// Homomorphic multiplication with rescaling (RNS version)
+///
+/// This is the KEY operation that requires RNS!
+///
+/// Steps:
+/// 1. Multiply polynomials (tensored ciphertext): (c0, c1) ⊗ (d0, d1) = (c0d0, c0d1+c1d0, c1d1)
+/// 2. Relinearize: convert degree-2 back to degree-1 using evaluation key
+/// 3. **Rescale**: drop the last prime from the modulus chain
+///
+/// After rescaling:
+/// - Level increases by 1 (one fewer prime)
+/// - Scale divided by the dropped prime
+/// - Coefficients properly normalized
+pub fn rns_multiply_ciphertexts(
+    ct1: &RnsCiphertext,
+    ct2: &RnsCiphertext,
+    evk: &RnsEvaluationKey,
+    params: &CliffordFHEParams,
+) -> RnsCiphertext {
+    assert_eq!(ct1.level, ct2.level, "Ciphertexts must be at same level");
+    assert_eq!(ct1.n, ct2.n, "Ciphertexts must have same dimension");
+
+    let n = ct1.n;
+    let primes = &params.moduli;
+    let num_primes = primes.len() - ct1.level;
+    let active_primes = &primes[..num_primes];
+
+    eprintln!("\n[INPUT CIPHERTEXTS]");
+    eprintln!("  ct1.c0[0] residues: {:?}", &ct1.c0.rns_coeffs[0][..ct1.c0.num_primes().min(3)]);
+    eprintln!("  ct2.c0[0] residues: {:?}", &ct2.c0.rns_coeffs[0][..ct2.c0.num_primes().min(3)]);
+    eprintln!("  Expected ct1.c0[0] ≈ 2Δ ≈ {:.2e}", 2.0 * params.scale);
+    eprintln!("  Expected ct2.c0[0] ≈ 3Δ ≈ {:.2e}", 3.0 * params.scale);
+
+    // Step 1: Multiply ciphertexts (tensored product)
+    // Degree-2 ciphertext: (d0, d1, d2) where m1 * m2 = d0 + d1*s + d2*s²
+    let c0d0 = rns_poly_multiply(&ct1.c0, &ct2.c0, active_primes, polynomial_multiply_ntt);
+    let c0d1 = rns_poly_multiply(&ct1.c0, &ct2.c1, active_primes, polynomial_multiply_ntt);
+    let c1d0 = rns_poly_multiply(&ct1.c1, &ct2.c0, active_primes, polynomial_multiply_ntt);
+    let c1d1 = rns_poly_multiply(&ct1.c1, &ct2.c1, active_primes, polynomial_multiply_ntt);
+
+    eprintln!("\n[AFTER TENSOR PRODUCT]");
+    eprintln!("  c0d0[0] residues: {:?}", &c0d0.rns_coeffs[0][..c0d0.num_primes().min(3)]);
+    eprintln!("  c1d1[0] (=d2) residues: {:?}", &c1d1.rns_coeffs[0][..c1d1.num_primes().min(3)]);
+
+    // d1 = c0*d1 + c1*d0
+    let d_mid = rns_add(&c0d1, &c1d0, active_primes);
+
+    // Step 2: Relinearization (degree-2 → degree-1)
+    let (new_c0, new_c1) = rns_relinearize_degree2(&c0d0, &d_mid, &c1d1, evk, active_primes, n);
+
+    // DEBUG: Check values BEFORE rescale
+    eprintln!("\n[BEFORE RESCALE] Values before rescaling:");
+    eprintln!("  new_c0[0] residues:");
+    for j in 0..new_c0.num_primes().min(3) {
+        let qi = active_primes[j];
+        let r = new_c0.rns_coeffs[0][j];
+        let centered = if r > qi / 2 { r - qi } else { r };
+        eprintln!("    j={} r={} centered={}", j, r, centered);
+    }
+    eprintln!("  new_c1[0] residues:");
+    for j in 0..new_c1.num_primes().min(3) {
+        let qi = active_primes[j];
+        let r = new_c1.rns_coeffs[0][j];
+        let centered = if r > qi / 2 { r - qi } else { r };
+        eprintln!("    j={} r={} centered={}", j, r, centered);
+    }
+
+    // Step 3: Exact rescaling with proper rounding
+    let inv = precompute_rescale_inv(active_primes);
+    let rescaled_c0 = rns_rescale_exact(&new_c0, active_primes, &inv);
+    let rescaled_c1 = rns_rescale_exact(&new_c1, active_primes, &inv);
+
+    // PROBE A: Verify DivideRoundByLastq identity
+    fn verify_divide_round_by_lastq(
+        pre: &RnsPolynomial,
+        post: &RnsPolynomial,
+        primes: &[i64],
+        idx: usize,
+    ) {
+        let num_primes = pre.num_primes();
+        let q_last = primes[num_primes - 1];
+
+        let cL = pre.rns_coeffs[idx][num_primes - 1];
+        let cL_center = if cL > q_last / 2 { cL - q_last } else { cL };
+
+        for j in 0..(num_primes - 1) {
+            let qi = primes[j];
+
+            let lhs = {
+                let t = ((post.rns_coeffs[idx][j] as i128) * (q_last as i128)) % (qi as i128);
+                let u = (t + (cL_center as i128)) % (qi as i128);
+                ((u + (qi as i128)) % (qi as i128)) as i64
+            };
+
+            let rhs = pre.rns_coeffs[idx][j] % qi;
+
+            if lhs != rhs {
+                eprintln!(
+                    "[DIVROUND CHECK FAIL] coeff {}, prime j={} (qi={}): LHS={} != RHS={}",
+                    idx, j, qi, lhs, rhs
+                );
+                eprintln!("  cL_center={}, post[{}][{}]={}, pre[{}][{}]={}",
+                    cL_center, idx, j, post.rns_coeffs[idx][j], idx, j, pre.rns_coeffs[idx][j]);
+            }
+        }
+    }
+
+    // PROBE B: Residue magnitude sanity check
+    fn dump_residues(name: &str, poly: &RnsPolynomial, primes: &[i64], idx: usize) {
+        eprintln!("{} coeff[{}] residues:", name, idx);
+        for j in 0..poly.num_primes() {
+            let qi = primes[j];
+            let r = poly.rns_coeffs[idx][j];
+            let centered = if r > qi / 2 { r - qi } else { r };
+            eprintln!("  j={}  r={}  centered={}", j, r, centered);
+        }
+    }
+
+    eprintln!("\n[RESCALE VERIFICATION]");
+    verify_divide_round_by_lastq(&new_c0, &rescaled_c0, active_primes, 0);
+    verify_divide_round_by_lastq(&new_c1, &rescaled_c1, active_primes, 0);
+
+    let new_primes = &active_primes[..active_primes.len()-1];
+    dump_residues("c0_after_rescale", &rescaled_c0, new_primes, 0);
+    dump_residues("c1_after_rescale", &rescaled_c1, new_primes, 0);
+
+    // New scale: (scale1 * scale2) / q_last
+    let q_last = active_primes[num_primes - 1];
+    let new_scale = (ct1.scale * ct2.scale) / (q_last as f64);
+    let new_level = ct1.level + 1;
+
+    RnsCiphertext::new(rescaled_c0, rescaled_c1, new_level, new_scale)
+}
+
+/// Relinearize degree-2 ciphertext to degree-1 (RNS version)
+///
+/// Input: (d0, d1, d2) where m = d0 + d1*s + d2*s²
+/// Output: (c0, c1) where m ≈ c0 + c1*s
+///
+/// Uses evaluation key which encrypts s²
+fn rns_relinearize_degree2(
+    d0: &RnsPolynomial,
+    d1: &RnsPolynomial,
+    d2: &RnsPolynomial,
+    evk: &RnsEvaluationKey,
+    primes: &[i64],
+    _n: usize,
+) -> (RnsPolynomial, RnsPolynomial) {
+    // CORRECTED: Use gadget decomposition instead of direct multiplication
+    // This is the key fix - decompose d2 in base 2^w to control noise
+
+    // 1) Decompose d2 into D digits in base B = 2^w
+    let d2_digits = decompose_base_pow2(d2, primes, evk.base_w);
+
+    eprintln!("[RELINEARIZATION DEBUG]");
+    eprintln!("  d2[0] residues: {:?}", &d2.rns_coeffs[0][..d2.num_primes().min(3)]);
+    eprintln!("  base_w: {}, num_digits: {}", evk.base_w, d2_digits.len());
+    for t in 0..d2_digits.len() {
+        eprintln!("  digit[{}][0] residues: {:?}", t, &d2_digits[t].rns_coeffs[0][..d2_digits[t].num_primes().min(3)]);
+    }
+
+    // 2) TEST: Try with subtraction for c1
+    // If EVK satisfies: evk0[t] - evk1[t]·s = -B^t·s² + e_t
+    // Then: -B^t·s² = evk0[t] - evk1[t]·s - e_t
+    // So: d2·s² = -Σ d_t·(evk0[t] - evk1[t]·s - e_t)
+    //           = -Σ d_t·evk0[t] + (Σ d_t·evk1[t])·s + noise
+    // Therefore: m = d0 + d1·s + d2·s²
+    //              = (d0 - Σ d_t·evk0[t]) + (d1 + Σ d_t·evk1[t])·s + noise
+    let mut c0 = d0.clone();
+    let mut c1 = d1.clone();
+
+    for t in 0..d2_digits.len() {
+        // Multiply small digit by corresponding EVK component
+        let u0 = rns_poly_multiply(&d2_digits[t], &evk.evk0[t], primes, polynomial_multiply_ntt);
+        let u1 = rns_poly_multiply(&d2_digits[t], &evk.evk1[t], primes, polynomial_multiply_ntt);
+
+        eprintln!("  After mult with evk[{}]: u0[0]={:?}, u1[0]={:?}",
+                  t, &u0.rns_coeffs[0][..u0.num_primes().min(3)], &u1.rns_coeffs[0][..u1.num_primes().min(3)]);
+
+        // Accumulate: SUBTRACT u0 from c0, ADD u1 to c1
+        c0 = rns_sub(&c0, &u0, primes);  // TEST: subtract instead of add
+        c1 = rns_add(&c1, &u1, primes);
+    }
+
+    (c0, c1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_rns_plaintext_conversion() {
+        let coeffs = vec![123, 456, 789, -100];
+        let scale = 1024.0;
+        let primes = vec![1_099_511_627_689, 1_099_511_627_691];
+
+        let pt = RnsPlaintext::from_coeffs(coeffs.clone(), scale, &primes, 0);
+        let recovered = pt.to_coeffs(&primes);
+
+        for i in 0..coeffs.len() {
+            assert_eq!(coeffs[i], recovered[i]);
+        }
+    }
+}

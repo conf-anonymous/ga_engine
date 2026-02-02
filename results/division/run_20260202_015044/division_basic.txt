@@ -1,0 +1,287 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+    Finished `release` profile [optimized] target(s) in 10.39s
+     Running `target/release/examples/bench_division_cuda_gpu`
+╔════════════════════════════════════════════════════════════════════════╗
+║     CUDA GPU Accelerated Homomorphic Division Benchmark               ║
+║                    (NVIDIA RTX / A100 / H100)                          ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Step 1: Initializing CUDA GPU...
+CUDA Device: NVIDIA GeForce RTX 4090
+  CUDA device initialized (141.48ms)
+
+Step 2: Setting up FHE parameters...
+  Ring dimension (N): 4096
+  Number of primes: 7 (max level: 6)
+  Scale: 2^40
+  Depth required: 2 NR iterations (4 levels) + 1 final mult = 5 levels
+
+Step 3: Generating keys...
+  [DEBUG] Creating NTT contexts for 7 primes (parallelized)...
+  [CPU] Prime 0: q=1152921504597016577, psi=142119819475847305, omega=351729224921194188
+  [CPU] Prime 1: q=1099511799809, psi=233161075628, omega=83678926232
+  [CPU] Prime 2: q=1099511922689, psi=56166301416, omega=89966450923
+  [DEBUG] NTT contexts created in 0.00s
+  [DEBUG] Starting keygen for N=4096, 7 primes
+  [DEBUG] Step 1/5: Secret key sampled in 0.00s
+  [DEBUG] Step 2/5: Uniform poly sampled in 0.00s
+  [DEBUG] Step 3/5: Error poly sampled in 0.00s
+  [DEBUG] Step 4/5: Public key computed in 0.01s
+  [DEBUG] Step 5/5: Starting evaluation key generation...
+  [DEBUG] Step 5/5: Evaluation key generated in 0.07s
+  Key generation time: 91.04ms
+
+Step 4: Initializing CUDA CKKS context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 7 primes...
+  [CUDA] Prime 0: q=1152921504597016577, psi=142119819475847305, omega=351729224921194188
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=1099511799809, psi=233161075628, omega=83678926232
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=1099511922689, psi=56166301416, omega=89966450923
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 5/7 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 7/7 NTT contexts
+  [CUDA CKKS] NTT contexts created in 1.66s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 896KB twiddles, psi powers, and 7 moduli on GPU in 0.013s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+  CUDA CKKS context ready: 1729.06ms
+
+Step 5: Generating CUDA relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 7
+  Number of gadget digits (dnum): 20
+
+Generating relinearization key...
+  Generated 5/20 key switching components
+  Generated 10/20 key switching components
+  Generated 15/20 key switching components
+  Generated 20/20 key switching components
+  Relinearization key generated in 0.08s
+
+  Relinearization keys ready: 78.71ms
+
+╔════════════════════════════════════════════════════════════════════════╗
+║                    BENCHMARK RESULTS                                   ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+─────────────────────────────────────────────────────────────────────────
+Test: 100.0 / 7.0 = 14.2857142857 (k=2 iterations)
+─────────────────────────────────────────────────────────────────────────
+  Encryption time (2 ciphertexts): 17.15ms
+  Initial depth level: 6
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.14285714285714285
+  Iterations: 2
+  Initial level: 6
+  Encrypted initial guess at level 6
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 5)
+    Created trivial ciphertext for 2.0 (level 5)
+    Computed 2 - a·x_n (level 5)
+    Mod-switching ct_xn from level 6 to 5
+    Iteration complete (level 4)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 6 to 4
+    Computed a·x_n (level 3)
+    Created trivial ciphertext for 2.0 (level 3)
+    Computed 2 - a·x_n (level 3)
+    Mod-switching ct_xn from level 4 to 3
+    Iteration complete (level 2)
+
+Newton-Raphson inverse complete!
+   Final level: 2
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 6 to 2
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 1
+   Total depth consumed: 5
+
+  Division completed
+  Final depth level: 1
+  Depth consumed: 5
+  Division time (CUDA GPU): 1369.40ms
+  Decryption time: 1.66ms
+  Expected result: 14.2857142857
+  Actual result:   14.2857143441
+  Absolute error:  5.84e-8
+  Relative error:  4.09e-9
+  Target accuracy: ~10^-3
+
+─────────────────────────────────────────────────────────────────────────
+Test: 1000.0 / 13.0 = 76.9230769231 (k=2 iterations)
+─────────────────────────────────────────────────────────────────────────
+  Encryption time (2 ciphertexts): 22.62ms
+  Initial depth level: 6
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.07692307692307693
+  Iterations: 2
+  Initial level: 6
+  Encrypted initial guess at level 6
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 5)
+    Created trivial ciphertext for 2.0 (level 5)
+    Computed 2 - a·x_n (level 5)
+    Mod-switching ct_xn from level 6 to 5
+    Iteration complete (level 4)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 6 to 4
+    Computed a·x_n (level 3)
+    Created trivial ciphertext for 2.0 (level 3)
+    Computed 2 - a·x_n (level 3)
+    Mod-switching ct_xn from level 4 to 3
+    Iteration complete (level 2)
+
+Newton-Raphson inverse complete!
+   Final level: 2
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 6 to 2
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 1
+   Total depth consumed: 5
+
+  Division completed
+  Final depth level: 1
+  Depth consumed: 5
+  Division time (CUDA GPU): 1432.66ms
+  Decryption time: 1.09ms
+  Expected result: 76.9230769231
+  Actual result:   76.9230768446
+  Absolute error:  7.85e-8
+  Relative error:  1.02e-9
+  Target accuracy: ~10^-3
+
+─────────────────────────────────────────────────────────────────────────
+Test: 5000.0 / 17.0 = 294.1176470588 (k=2 iterations)
+─────────────────────────────────────────────────────────────────────────
+  Encryption time (2 ciphertexts): 15.41ms
+  Initial depth level: 6
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Homomorphic Division                         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Step 1: Computing 1/denominator...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.058823529411764705
+  Iterations: 2
+  Initial level: 6
+  Encrypted initial guess at level 6
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 5)
+    Created trivial ciphertext for 2.0 (level 5)
+    Computed 2 - a·x_n (level 5)
+    Mod-switching ct_xn from level 6 to 5
+    Iteration complete (level 4)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 6 to 4
+    Computed a·x_n (level 3)
+    Created trivial ciphertext for 2.0 (level 3)
+    Computed 2 - a·x_n (level 3)
+    Mod-switching ct_xn from level 4 to 3
+    Iteration complete (level 2)
+
+Newton-Raphson inverse complete!
+   Final level: 2
+   Depth consumed: 4
+
+Step 2: Mod-switching numerator from level 6 to 2
+Step 3: Multiplying numerator by (1/denominator)...
+
+Division complete!
+   Final level: 1
+   Total depth consumed: 5
+
+  Division completed
+  Final depth level: 1
+  Depth consumed: 5
+  Division time (CUDA GPU): 1256.81ms
+  Decryption time: 1.07ms
+  Expected result: 294.1176470588
+  Actual result:   294.1176500643
+  Absolute error:  3.01e-6
+  Relative error:  1.02e-8
+  Target accuracy: ~10^-3
+
+╔════════════════════════════════════════════════════════════════════════╗
+║                          PERFORMANCE SUMMARY                           ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+CUDA GPU Division Performance:
+  Average time per division: 1352.96ms
+  Total divisions performed: 3
+
+CUDA GPU Acceleration Benefits:
+  - NTT-based polynomial multiplication
+  - GPU-native relinearization
+  - Parallel RNS prime operations
+  - Batched NTT for all primes at once
+
+Division Algorithm Properties:
+  - Newton-Raphson iteration: x_(n+1) = x_n(2 - ax_n)
+  - Quadratic convergence: doubles precision each iteration
+  - Depth cost: 2k+1 levels for k iterations
+  - Uses mod_switch for level alignment (not rescale)
+
+Comparison to CPU Implementation:
+  - CPU (V2 optimized): ~8000ms (8 seconds)
+  - CUDA GPU (this run): 1352.96ms
+  - Measured speedup: 5.9x
+
+╔════════════════════════════════════════════════════════════════════════╗
+║  BENCHMARK COMPLETE                                                    ║
+╚════════════════════════════════════════════════════════════════════════╝

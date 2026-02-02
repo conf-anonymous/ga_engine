@@ -1,0 +1,424 @@
+//! V2 Parameter Sets for Clifford FHE with NTT Optimization
+//!
+//! **Optimizations over V1:**
+//! - All primes are NTT-friendly: q ≡ 1 mod 2N
+//! - Optimized for Harvey butterfly NTT
+//! - Better prime selection for Barrett reduction efficiency
+//! - Larger polynomial degrees supported (up to N=16384)
+//!
+//! **Performance Target:** 10-20× faster than V1 with same security
+
+/// Security levels following NIST standards
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SecurityLevel {
+    /// ~128-bit security (NIST Level 1)
+    Bit128,
+    /// ~192-bit security (NIST Level 3)
+    Bit192,
+    /// ~256-bit security (NIST Level 5)
+    Bit256,
+}
+
+/// V2 CKKS parameters optimized for NTT-based operations
+#[derive(Debug, Clone)]
+pub struct CliffordFHEParams {
+    /// Ring dimension (polynomial degree)
+    /// Must be power of 2 for NTT
+    /// V2 supports: 1024, 2048, 4096, 8192, 16384
+    pub n: usize,
+
+    /// Ciphertext modulus chain (for leveled FHE)
+    /// All primes are NTT-friendly (q ≡ 1 mod 2N)
+    pub moduli: Vec<u64>,
+
+    /// Scaling factor (determines precision)
+    /// In V2, we use exact powers of 2 for clean rescaling
+    pub scale: f64,
+
+    /// Standard deviation for error distribution
+    pub error_std: f64,
+
+    /// Security level
+    pub security: SecurityLevel,
+
+    /// Precomputed scale inverses for multiply_plain
+    /// inv_scale_mod_q[level][prime_idx] = (scale mod q_i)^(-1) mod q_i
+    /// Used to cancel scale inflation in plaintext multiplication
+    pub inv_scale_mod_q: Vec<Vec<u64>>,
+}
+
+impl CliffordFHEParams {
+    /// Test parameters for NTT development (N=1024, depth-1)
+    ///
+    /// **Use for:** NTT testing, basic multiplication verification
+    ///
+    /// **Modulus chain:**
+    /// - q₀ = 1152921504606584833 (60-bit, NTT-friendly for N=1024)
+    /// - q₁ = 1099511678977 (41-bit, scaling prime ≈ 2^40)
+    /// - q₂ = 1099511683073 (41-bit, scaling prime ≈ 2^40)
+    pub fn new_test_ntt_1024() -> Self {
+        let n = 1024;
+        let moduli = vec![
+            1152921504606584833,  // 60-bit: (q-1) = 2^60 - 2048 = 1024 * 2 * k
+            1099511678977,        // 41-bit: (q-1) = 2048 * 536870351
+            1099511683073,        // 41-bit: (q-1) = 2048 * 536870353
+        ];
+        let scale = 2f64.powi(40); // Exact power of 2
+        let inv_scale_mod_q = Self::precompute_inv_scale_mod_q(scale, &moduli);
+
+        Self {
+            n,
+            moduli,
+            scale,
+            error_std: 3.2,
+            security: SecurityLevel::Bit128,
+            inv_scale_mod_q,
+        }
+    }
+
+    /// Test parameters for N=2048 (depth-3)
+    ///
+    /// **Use for:** Medium-depth circuits, faster than N=4096
+    ///
+    /// **Modulus chain:** 5 primes for depth-3 support
+    pub fn new_test_ntt_2048() -> Self {
+        let n = 2048;
+        let moduli = vec![
+            1152921504605798401,  // 60-bit: q ≡ 1 mod 4096
+            1099511701505,        // 41-bit: q ≡ 1 mod 4096
+            1099511705601,        // 41-bit: q ≡ 1 mod 4096
+            1099511709697,        // 41-bit: q ≡ 1 mod 4096
+            1099511713793,        // 41-bit: q ≡ 1 mod 4096
+        ];
+        let scale = 2f64.powi(40);
+        let inv_scale_mod_q = Self::precompute_inv_scale_mod_q(scale, &moduli);
+
+        Self {
+            n,
+            moduli,
+            scale,
+            error_std: 3.2,
+            security: SecurityLevel::Bit128,
+            inv_scale_mod_q,
+        }
+    }
+
+    /// Test parameters for N=4096 (depth-5)
+    ///
+    /// **Use for:** Deep circuits, geometric product chains
+    ///
+    /// **Modulus chain:** 7 primes for depth-5 support
+    pub fn new_test_ntt_4096() -> Self {
+        let n = 4096;
+        let moduli = vec![
+            1152921504597409793,  // 60-bit: q ≡ 1 mod 8192
+            1099511734273,        // 41-bit: q ≡ 1 mod 8192
+            1099511742465,        // 41-bit: q ≡ 1 mod 8192
+            1099511750657,        // 41-bit: q ≡ 1 mod 8192
+            1099511758849,        // 41-bit: q ≡ 1 mod 8192
+            1099511767041,        // 41-bit: q ≡ 1 mod 8192
+            1099511775233,        // 41-bit: q ≡ 1 mod 8192
+        ];
+        let scale = 2f64.powi(40);
+        let inv_scale_mod_q = Self::precompute_inv_scale_mod_q(scale, &moduli);
+
+        Self {
+            n,
+            moduli,
+            scale,
+            error_std: 3.2,
+            security: SecurityLevel::Bit128,
+            inv_scale_mod_q,
+        }
+    }
+
+    /// Production parameters for 128-bit security (N=8192, depth-7)
+    ///
+    /// **Use for:** Production deployments
+    ///
+    /// **Modulus chain:** 9 primes for depth-7 support
+    pub fn new_128bit() -> Self {
+        Self {
+            n: 8192,
+            moduli: vec![
+                1152921504606994433,  // 60-bit: q ≡ 1 mod 16384
+                1099511922689,        // 41-bit: q ≡ 1 mod 16384
+                1099512004609,        // 41-bit: q ≡ 1 mod 16384
+                1099512266753,        // 41-bit: q ≡ 1 mod 16384
+                1099512299521,        // 41-bit: q ≡ 1 mod 16384
+                1099512365057,        // 41-bit: q ≡ 1 mod 16384
+                1099512856577,        // 41-bit: q ≡ 1 mod 16384
+                1099512938497,        // 41-bit: q ≡ 1 mod 16384
+                1099513774081,        // 41-bit: q ≡ 1 mod 16384
+            ],
+            scale: 2f64.powi(40),
+            error_std: 3.2,
+            security: SecurityLevel::Bit128,
+        }
+    }
+
+    /// Production parameters for 192-bit security (N=16384, depth-7)
+    pub fn new_192bit() -> Self {
+        Self {
+            n: 16384,
+            moduli: vec![
+                1152921504607338497,  // 60-bit: q ≡ 1 mod 32768
+                1099511922689,        // 41-bit: q ≡ 1 mod 32768
+                1099512938497,        // 41-bit: q ≡ 1 mod 32768
+                1099514314753,        // 41-bit: q ≡ 1 mod 32768
+                1099514478593,        // 41-bit: q ≡ 1 mod 32768
+                1099515691009,        // 41-bit: q ≡ 1 mod 32768
+                1099515789313,        // 41-bit: q ≡ 1 mod 32768
+                1099515985921,        // 41-bit: q ≡ 1 mod 32768
+                1099516182529,        // 41-bit: q ≡ 1 mod 32768
+            ],
+            scale: 2f64.powi(40),
+            error_std: 3.2,
+            security: SecurityLevel::Bit192,
+        }
+    }
+
+    /// Production parameters for 256-bit security (N=32768, depth-7)
+    pub fn new_256bit() -> Self {
+        Self {
+            n: 32768,
+            moduli: vec![
+                1152921504608747521,  // 60-bit: q ≡ 1 mod 65536
+                1099512938497,        // 41-bit: q ≡ 1 mod 65536
+                1099514314753,        // 41-bit: q ≡ 1 mod 65536
+                1099515691009,        // 41-bit: q ≡ 1 mod 65536
+                1099516280833,        // 41-bit: q ≡ 1 mod 65536
+                1099516542977,        // 41-bit: q ≡ 1 mod 65536
+                1099516870657,        // 41-bit: q ≡ 1 mod 65536
+                1099518246913,        // 41-bit: q ≡ 1 mod 65536
+                1099520606209,        // 41-bit: q ≡ 1 mod 65536
+            ],
+            scale: 2f64.powi(40),
+            error_std: 3.2,
+            security: SecurityLevel::Bit256,
+        }
+    }
+
+    /// Get the prime for a specific level in the modulus chain
+    pub fn modulus_at_level(&self, level: usize) -> u64 {
+        if level >= self.moduli.len() {
+            panic!("Level {} exceeds maximum {}", level, self.moduli.len() - 1);
+        }
+        self.moduli[level]
+    }
+
+    /// Number of levels (depth) available
+    pub fn max_level(&self) -> usize {
+        self.moduli.len() - 1
+    }
+
+    /// Get product of all moduli (total modulus)
+    pub fn total_modulus(&self) -> f64 {
+        self.moduli.iter().map(|&q| q as f64).product()
+    }
+
+    /// Verify all primes are NTT-friendly (q ≡ 1 mod 2N)
+    pub fn verify_ntt_friendly(&self) -> bool {
+        let two_n = (2 * self.n) as u64;
+        self.moduli.iter().all(|&q| (q - 1) % two_n == 0)
+    }
+
+    /// Precompute scale inverses for all levels and primes
+    /// Returns inv_scale_mod_q[level][prime_idx] = (scale mod q_i)^(-1) mod q_i
+    fn precompute_inv_scale_mod_q(scale: f64, moduli: &[u64]) -> Vec<Vec<u64>> {
+        let mut inv_scale_mod_q = Vec::new();
+
+        for level in 0..moduli.len() {
+            let mut level_invs = Vec::new();
+
+            for &q in &moduli[..=level] {
+                // Compute scale mod q
+                let scale_u64 = scale as u64;
+                let scale_mod_q = if scale_u64 < q {
+                    scale_u64
+                } else {
+                    (scale as u128 % q as u128) as u64
+                };
+
+                // Compute modular inverse using extended Euclidean algorithm
+                let inv = Self::mod_inverse(scale_mod_q, q)
+                    .expect("Scale must be coprime with modulus (odd primes)");
+
+                level_invs.push(inv);
+            }
+
+            inv_scale_mod_q.push(level_invs);
+        }
+
+        inv_scale_mod_q
+    }
+
+    /// Compute modular inverse using extended Euclidean algorithm
+    /// Returns x such that (a * x) mod m = 1
+    fn mod_inverse(a: u64, m: u64) -> Option<u64> {
+        fn extended_gcd(a: i128, b: i128) -> (i128, i128, i128) {
+            if b == 0 {
+                (a, 1, 0)
+            } else {
+                let (gcd, x1, y1) = extended_gcd(b, a % b);
+                (gcd, y1, x1 - (a / b) * y1)
+            }
+        }
+
+        let (gcd, x, _) = extended_gcd(a as i128, m as i128);
+
+        if gcd != 1 {
+            return None; // No inverse exists
+        }
+
+        // Ensure positive result
+        let result = if x < 0 {
+            (x + m as i128) as u64
+        } else {
+            x as u64
+        };
+
+        Some(result)
+    }
+}
+
+impl Default for CliffordFHEParams {
+    fn default() -> Self {
+        Self::new_128bit()
+    }
+}
+
+/// Precomputed NTT-friendly primes for different polynomial degrees
+///
+/// All primes satisfy: q ≡ 1 mod 2N for their respective N
+pub mod ntt_primes {
+    /// 60-bit NTT-friendly primes for N=1024
+    pub const N1024_60BIT: &[u64] = &[
+        1152921504606584833,  // 2^60 - 2047 (favorite prime for N=1024)
+        1152921504606586881,
+        1152921504606588929,
+    ];
+
+    /// 41-bit NTT-friendly primes for N=1024 (scaling primes)
+    pub const N1024_41BIT: &[u64] = &[
+        1099511678977,   // 2^40 + 51201
+        1099511683073,
+        1099511687169,
+        1099511691265,
+        1099511695361,
+        1099511699457,
+    ];
+
+    /// 60-bit NTT-friendly primes for N=2048
+    pub const N2048_60BIT: &[u64] = &[
+        1152921504605798401,
+        1152921504605802497,
+        1152921504605806593,
+    ];
+
+    /// 60-bit NTT-friendly primes for N=4096
+    pub const N4096_60BIT: &[u64] = &[
+        1152921504597409793,
+        1152921504597417985,
+        1152921504597426177,
+    ];
+
+    /// 60-bit NTT-friendly primes for N=8192
+    pub const N8192_60BIT: &[u64] = &[
+        1152921504584294401,
+        1152921504584310785,
+        1152921504584327169,
+    ];
+
+    /// 60-bit NTT-friendly primes for N=16384
+    pub const N16384_60BIT: &[u64] = &[
+        1152921504568426497,
+        1152921504568459265,
+        1152921504568492033,
+    ];
+
+    /// Verify a prime is NTT-friendly for given N
+    pub fn is_ntt_friendly(q: u64, n: usize) -> bool {
+        let two_n = (2 * n) as u64;
+        (q - 1) % two_n == 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_params_n1024() {
+        let params = CliffordFHEParams::new_test_ntt_1024();
+        assert_eq!(params.n, 1024);
+        assert_eq!(params.moduli.len(), 3);
+        assert!(params.verify_ntt_friendly(), "All primes must be NTT-friendly");
+    }
+
+    #[test]
+    fn test_params_n2048() {
+        let params = CliffordFHEParams::new_test_ntt_2048();
+        assert_eq!(params.n, 2048);
+        assert_eq!(params.moduli.len(), 5);
+        assert!(params.verify_ntt_friendly());
+    }
+
+    #[test]
+    fn test_params_n4096() {
+        let params = CliffordFHEParams::new_test_ntt_4096();
+        assert_eq!(params.n, 4096);
+        assert_eq!(params.moduli.len(), 7);
+        assert!(params.verify_ntt_friendly());
+    }
+
+    #[test]
+    fn test_params_128bit() {
+        let params = CliffordFHEParams::new_128bit();
+        assert_eq!(params.n, 8192);
+        assert_eq!(params.security, SecurityLevel::Bit128);
+        assert!(params.verify_ntt_friendly());
+    }
+
+    #[test]
+    fn test_modulus_at_level() {
+        let params = CliffordFHEParams::new_test_ntt_1024();
+        let q0 = params.modulus_at_level(0);
+        assert_eq!(q0, 1152921504606584833);
+    }
+
+    #[test]
+    fn test_ntt_friendly_verification() {
+        // Test N=1024 primes
+        for &q in ntt_primes::N1024_60BIT {
+            assert!(
+                ntt_primes::is_ntt_friendly(q, 1024),
+                "Prime {} should be NTT-friendly for N=1024",
+                q
+            );
+        }
+
+        for &q in ntt_primes::N1024_41BIT {
+            assert!(
+                ntt_primes::is_ntt_friendly(q, 1024),
+                "Prime {} should be NTT-friendly for N=1024",
+                q
+            );
+        }
+    }
+
+    #[test]
+    fn test_scale_is_power_of_two() {
+        let params = CliffordFHEParams::new_128bit();
+        // scale should be exactly 2^40
+        let expected = 2f64.powi(40);
+        assert_eq!(params.scale, expected);
+    }
+
+    #[test]
+    #[should_panic(expected = "Level 10 exceeds maximum")]
+    fn test_invalid_level() {
+        let params = CliffordFHEParams::new_test_ntt_1024();
+        params.modulus_at_level(10); // Should panic
+    }
+}

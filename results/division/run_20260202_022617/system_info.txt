@@ -1,0 +1,46 @@
+# System Information for Homomorphic Division Benchmarks
+# Generated: Mon Feb  2 02:26:17 UTC 2026
+# Run ID: 20260202_022617
+
+## GPU Information
+
+Mon Feb  2 02:26:17 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4090        On  |   00000000:01:00.0 Off |                  Off |
+|  0%   30C    P8             22W /  450W |       2MiB /  24564MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+
+## CUDA Toolkit
+nvcc: NVIDIA (R) Cuda compiler driver
+Copyright (c) 2005-2024 NVIDIA Corporation
+Built on Thu_Mar_28_02:18:24_PDT_2024
+Cuda compilation tools, release 12.4, V12.4.131
+Build cuda_12.4.r12.4/compiler.34097967_0
+
+## Rust Toolchain
+rustc 1.93.0 (254b59607 2026-01-19)
+cargo 1.93.0 (083ac5135 2025-12-15)
+
+## CPU Information
+model name	: AMD EPYC 75F3 32-Core Processor
+CPU Cores: 128
+
+## Memory
+               total        used        free      shared  buff/cache   available
+Mem:           503Gi        72Gi       148Gi       1.5Gi       282Gi       426Gi
+Swap:             0B          0B          0B

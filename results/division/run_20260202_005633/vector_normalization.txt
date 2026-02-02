@@ -1,0 +1,660 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+    Finished `release` profile [optimized] target(s) in 11.93s
+     Running `target/release/examples/bench_vector_normalization_pipeline`
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║              VECTOR NORMALIZATION PIPELINE BENCHMARK                                         ║
+║         Homomorphic Unit Vector Computation via Newton-Raphson Division                      ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 1: INITIALIZATION                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  [1/5] Initializing CUDA GPU...
+CUDA Device: NVIDIA GeForce RTX 4090
+         CUDA ready (152.65ms)
+  [2/5] Setting up FHE parameters...
+         Ring dimension (N): 8192
+         Number of primes: 9 (max level: 8)
+  [3/5] Generating keys...
+  [DEBUG] Creating NTT contexts for 9 primes (parallelized)...
+  [CPU] Prime 0: q=1152921504606994433, psi=565558436642897162, omega=739311681457560164
+  [CPU] Prime 1: q=1099511922689, psi=299284966050, omega=56166301416
+  [CPU] Prime 2: q=1099512004609, psi=48487617669, omega=437109289928
+  [DEBUG] NTT contexts created in 0.00s
+  [DEBUG] Starting keygen for N=8192, 9 primes
+  [DEBUG] Step 1/5: Secret key sampled in 0.00s
+  [DEBUG] Step 2/5: Uniform poly sampled in 0.00s
+  [DEBUG] Step 3/5: Error poly sampled in 0.00s
+  [DEBUG] Step 4/5: Public key computed in 0.02s
+  [DEBUG] Step 5/5: Starting evaluation key generation...
+  [DEBUG] Step 5/5: Evaluation key generated in 0.14s
+         Keys generated (201.20ms)
+  [4/5] Creating CUDA CKKS context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 9 primes...
+  [CUDA] Prime 0: q=1152921504606994433, psi=565558436642897162, omega=739311681457560164
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=1099511922689, psi=299284966050, omega=56166301416
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=1099512004609, psi=48487617669, omega=437109289928
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 5/9 NTT contexts
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 9/9 NTT contexts
+  [CUDA CKKS] NTT contexts created in 2.16s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 2304KB twiddles, psi powers, and 9 moduli on GPU in 0.012s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+         Context ready (2216.40ms)
+  [5/5] Generating relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 9
+  Number of gadget digits (dnum): 25
+
+Generating relinearization key...
+  Generated 5/25 key switching components
+  Generated 10/25 key switching components
+  Generated 15/25 key switching components
+  Generated 20/25 key switching components
+  Generated 25/25 key switching components
+  Relinearization key generated in 0.18s
+
+         Relin keys ready (184.50ms)
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 2: TEST VECTORS                                                                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Test vectors:
+  ┌─────────────────────────────┬─────────────────────────────────────────────────────────────┐
+  │ Description                 │ Vector (x, y, z)                      │ ||v||              │
+  ├─────────────────────────────┼───────────────────────────────────────┼────────────────────┤
+  │ 3-4-5 triangle (||v||=5)    │ (  3.00,   4.00,   0.00)            │           5.000000 │
+  │ Pythagorean (||v||=3)       │ (  1.00,   2.00,   2.00)            │           3.000000 │
+  │ Unit X (||v||=1)            │ (  1.00,   0.00,   0.00)            │           1.000000 │
+  │ Unit Y (||v||=1)            │ (  0.00,   1.00,   0.00)            │           1.000000 │
+  │ Diagonal (||v||=sqrt(3))    │ (  1.00,   1.00,   1.00)            │           1.732051 │
+  │ 2-3-6 (||v||=7)             │ (  2.00,   3.00,   6.00)            │           7.000000 │
+  └─────────────────────────────┴───────────────────────────────────────┴────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 3: FULL NORMALIZATION PIPELINE                                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Pipeline stages:
+    1. Encode vector components
+    2. Encrypt each component
+    3. Compute ||v||² = x² + y² + z² (homomorphically)
+    4. Compute 1/||v||² via Newton-Raphson
+    5. Compute 1/||v|| via inverse sqrt Newton-Raphson
+    6. Scale components: x/||v||, y/||v||, z/||v||
+    7. Decrypt and verify
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: 3-4-5 triangle (||v||=5) = (3.00, 4.00, 0.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 25.000000
+    Expected ||v||  = 5.000000
+    Expected unit   = (0.600000, 0.800000, 0.000000)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1843.95ms
+      - Encrypt time: 48.37ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2080.20ms
+      - Level after: 7
+      - Computed ||v||²: 25.000000
+      - Expected ||v||²: 25.000000
+      - Error: 1.18e-7
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.04
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3538.77ms
+      - Level after: 3
+      - Computed 1/||v||²: 0.040000
+      - Expected 1/||v||²: 0.040000
+      - Error: 2.16e-9
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3270.73ms
+      - Level after: 3
+      - Computed 1/||v||: 15853844.243761
+      - Expected 1/||v||: 0.200000
+      - Error: 1.59e7
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 638.34ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1018.78ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  0.600000,   0.800000,   0.000000)                         │
+    │ Computed unit:  (25431096.496093, -1095513.968146, 7168684.141180)                         │
+    │ Max component error:     2.54e7                                                   │
+    │ Computed ||v̂||: 26444864.381653 (should be 1.0)                                        │
+    │ Total pipeline time:   13461.50ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: Pythagorean (||v||=3) = (1.00, 2.00, 2.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 9.000000
+    Expected ||v||  = 3.000000
+    Expected unit   = (0.333333, 0.666667, 0.666667)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1872.89ms
+      - Encrypt time: 41.71ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2037.61ms
+      - Level after: 7
+      - Computed ||v||²: 9.000000
+      - Expected ||v||²: 9.000000
+      - Error: 2.70e-7
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.1111111111111111
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3541.37ms
+      - Level after: 3
+      - Computed 1/||v||²: 0.111111
+      - Expected 1/||v||²: 0.111111
+      - Error: 2.59e-9
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3262.72ms
+      - Level after: 3
+      - Computed 1/||v||: 1841613.062414
+      - Expected 1/||v||: 0.333333
+      - Error: 1.84e6
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 638.42ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1018.44ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  0.333333,   0.666667,   0.666667)                         │
+    │ Computed unit:  (24096643.127762, -20770459.988965, -26247218.203056)                         │
+    │ Max component error:     2.62e7                                                   │
+    │ Computed ||v̂||: 41242898.559373 (should be 1.0)                                        │
+    │ Total pipeline time:   13438.42ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: Unit X (||v||=1) = (1.00, 0.00, 0.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 1.000000
+    Expected ||v||  = 1.000000
+    Expected unit   = (1.000000, 0.000000, 0.000000)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1846.27ms
+      - Encrypt time: 42.72ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2026.73ms
+      - Level after: 7
+      - Computed ||v||²: 1.000000
+      - Expected ||v||²: 1.000000
+      - Error: 1.01e-8
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 1
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3552.45ms
+      - Level after: 3
+      - Computed 1/||v||²: 1.000000
+      - Expected 1/||v||²: 1.000000
+      - Error: 1.52e-8
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3256.17ms
+      - Level after: 3
+      - Computed 1/||v||: 5509039.744149
+      - Expected 1/||v||: 1.000000
+      - Error: 5.51e6
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 638.37ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1035.43ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  1.000000,   0.000000,   0.000000)                         │
+    │ Computed unit:  (-18741728.562310, -15744505.846849, -2763714.980991)                         │
+    │ Max component error:     1.87e7                                                   │
+    │ Computed ||v̂||: 24632904.302191 (should be 1.0)                                        │
+    │ Total pipeline time:   13426.36ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: Unit Y (||v||=1) = (0.00, 1.00, 0.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 1.000000
+    Expected ||v||  = 1.000000
+    Expected unit   = (0.000000, 1.000000, 0.000000)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1848.17ms
+      - Encrypt time: 43.59ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2033.24ms
+      - Level after: 7
+      - Computed ||v||²: 1.000000
+      - Expected ||v||²: 1.000000
+      - Error: 5.72e-8
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 1
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3571.12ms
+      - Level after: 3
+      - Computed 1/||v||²: 1.000000
+      - Expected 1/||v||²: 1.000000
+      - Error: 6.00e-8
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3256.95ms
+      - Level after: 3
+      - Computed 1/||v||: -16133487.615930
+      - Expected 1/||v||: 1.000000
+      - Error: 1.61e7
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 645.48ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1017.85ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  0.000000,   1.000000,   0.000000)                         │
+    │ Computed unit:  (-6634749.328443, -17393361.153888, -9867152.193558)                         │
+    │ Max component error:     1.74e7                                                   │
+    │ Computed ||v̂||: 21069162.377553 (should be 1.0)                                        │
+    │ Total pipeline time:   13441.22ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: Diagonal (||v||=sqrt(3)) = (1.00, 1.00, 1.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 3.000000
+    Expected ||v||  = 1.732051
+    Expected unit   = (0.577350, 0.577350, 0.577350)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1842.34ms
+      - Encrypt time: 43.30ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2029.40ms
+      - Level after: 7
+      - Computed ||v||²: 3.000000
+      - Expected ||v||²: 3.000000
+      - Error: 9.79e-8
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.3333333333333333
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3537.48ms
+      - Level after: 3
+      - Computed 1/||v||²: 0.333333
+      - Expected 1/||v||²: 0.333333
+      - Error: 1.34e-8
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3267.57ms
+      - Level after: 3
+      - Computed 1/||v||: 926372.968256
+      - Expected 1/||v||: 0.577350
+      - Error: 9.26e5
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 636.07ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1024.29ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  0.577350,   0.577350,   0.577350)                         │
+    │ Computed unit:  (41691419.060851, 11991001.161437, -8687729.977113)                         │
+    │ Max component error:     4.17e7                                                   │
+    │ Computed ||v̂||: 44242911.119368 (should be 1.0)                                        │
+    │ Total pipeline time:   13405.55ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+  ─────────────────────────────────────────────────────────────────────────────────────────
+  Vector: 2-3-6 (||v||=7) = (2.00, 3.00, 6.00)
+  ─────────────────────────────────────────────────────────────────────────────────────────
+    Expected ||v||² = 49.000000
+    Expected ||v||  = 7.000000
+    Expected unit   = (0.285714, 0.428571, 0.857143)
+
+    Stage 1-2: Encode & Encrypt
+      - Encode time:  1845.12ms
+      - Encrypt time: 43.34ms
+      - Initial level: 8
+
+    Stage 3: Compute ||v||²
+      - Time: 2040.45ms
+      - Level after: 7
+      - Computed ||v||²: 49.000000
+      - Expected ||v||²: 49.000000
+      - Error: 2.12e-7
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.02040816326530612
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+    Stage 4: Compute 1/||v||² via Newton-Raphson
+      - Time: 3572.52ms
+      - Level after: 3
+      - Computed 1/||v||²: 0.020408
+      - Expected 1/||v||²: 0.020408
+      - Error: 1.36e-9
+
+    Stage 5: Compute 1/||v|| via inverse sqrt
+      - Time: 3287.02ms
+      - Level after: 3
+      - Computed 1/||v||: 36864103.378968
+      - Expected 1/||v||: 0.142857
+      - Error: 3.69e7
+
+    Stage 6: Scale components x/||v||, y/||v||, z/||v||
+      - Time: 637.48ms
+      - Final level: 2
+
+    Stage 7: Decrypt and verify
+      - Decrypt time: 1017.56ms
+
+    ┌─────────────────────────────────────────────────────────────────────────────────┐
+    │ RESULTS                                                                         │
+    ├─────────────────────────────────────────────────────────────────────────────────┤
+    │ Expected unit:  (  0.285714,   0.428571,   0.857143)                         │
+    │ Computed unit:  (33854414.174996, -11603930.593711, 14340037.984216)                         │
+    │ Max component error:     3.39e7                                                   │
+    │ Computed ||v̂||: 38553978.442498 (should be 1.0)                                        │
+    │ Total pipeline time:   13480.52ms                                                  │
+    └─────────────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 4: TYPICAL TIMING BREAKDOWN                                                         │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.04
+  Iterations: 2
+  Initial level: 7
+  Encrypted initial guess at level 7
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 6)
+    Created trivial ciphertext for 2.0 (level 6)
+    Computed 2 - a·x_n (level 6)
+    Mod-switching ct_xn from level 7 to 6
+    Iteration complete (level 5)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 7 to 5
+    Computed a·x_n (level 4)
+    Created trivial ciphertext for 2.0 (level 4)
+    Computed 2 - a·x_n (level 4)
+    Mod-switching ct_xn from level 5 to 4
+    Iteration complete (level 3)
+
+Newton-Raphson inverse complete!
+   Final level: 3
+   Depth consumed: 4
+
+  ┌────────────────────────────────────────┬────────────┬────────────┐
+  │ Stage                                  │  Time (ms) │ % of Total │
+  ├────────────────────────────────────────┼────────────┼────────────┤
+  │ Encode (3 components)                  │    1842.13 │      16.2% │
+  │ Encrypt (3 components)                 │      43.37 │       0.4% │
+  │ Square components (3x mult)            │    2046.36 │      17.9% │
+  │ Sum ||v||²                             │       0.39 │       0.0% │
+  │ Newton-Raphson 1/||v||² (2 iter)       │    3543.31 │      31.1% │
+  │ Newton-Raphson 1/||v|| (1 iter)        │    3283.84 │      28.8% │
+  │ Scale components (3x mult)             │     636.65 │       5.6% │
+  │ Decrypt (3 components)                 │       6.16 │       0.1% │
+  ├────────────────────────────────────────┼────────────┼────────────┤
+  │ TOTAL                                  │   11402.21 │     100.0% │
+  └────────────────────────────────────────┴────────────┴────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 5: SUMMARY                                                                          │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Vector Normalization Pipeline:
+    - Demonstrates practical homomorphic division for geometric computing
+    - Computes unit vector v/||v|| entirely on encrypted data
+    - Uses Newton-Raphson for both 1/x and 1/sqrt(x) operations
+
+  Key Applications:
+    - Privacy-preserving computer graphics (surface normals)
+    - Secure robotics (direction vectors)
+    - Encrypted physics simulations (velocity normalization)
+    - Private machine learning (feature normalization)
+
+  Depth Budget:
+    - ||v||² computation: 1 level (squaring)
+    - 1/||v||² Newton-Raphson: 4-5 levels (2 iterations)
+    - 1/||v|| inverse sqrt: 2-3 levels (1 iteration)
+    - Final scaling: 1 level
+    - Total: ~8-10 levels
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║                              BENCHMARK COMPLETE                                              ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+

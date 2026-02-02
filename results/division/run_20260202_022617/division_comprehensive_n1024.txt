@@ -1,0 +1,47 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+warning: unused import: `multiply_ciphertexts_gpu`
+  --> examples/bench_division_comprehensive.rs:32:74
+   |
+32 |             inversion::{newton_raphson_inverse_gpu, scalar_division_gpu, multiply_ciphertexts_gpu},
+   |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `actual`, `initial_level`, and `final_level` are never read
+  --> examples/bench_division_comprehensive.rs:53:5
+   |
+48 | struct BenchResult {
+   |        ----------- fields in this struct
+...
+53 |     actual: f64,
+   |     ^^^^^^
+...
+58 |     initial_level: usize,
+   |     ^^^^^^^^^^^^^
+59 |     final_level: usize,
+   |     ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ga_engine` (example "bench_division_comprehensive") generated 2 warnings (run `cargo fix --example "bench_division_comprehensive" -p ga_engine` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 10.63s
+     Running `target/release/examples/bench_division_comprehensive`
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║                    COMPREHENSIVE HOMOMORPHIC DIVISION BENCHMARK                              ║
+║                              CUDA GPU Acceleration                                           ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 1: INITIALIZATION                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  [1/5] Initializing CUDA GPU...
+CUDA Device: NVIDIA GeForce RTX 4090
+         CUDA device ready (144.35ms)
+  [2/5] Setting up FHE parameters...
+
+  ⚠️  WARNING: N=1024 only has 3 primes (max level 2)
+     Division requires 5 levels minimum (for 2 iterations).
+     Skipping N=1024 - use N=4096 or higher for division.
+

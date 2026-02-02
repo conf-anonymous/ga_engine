@@ -1,0 +1,55 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+warning: unused import: `multiply_ciphertexts_gpu`
+  --> examples/bench_division_comprehensive.rs:32:74
+   |
+32 |             inversion::{newton_raphson_inverse_gpu, scalar_division_gpu, multiply_ciphertexts_gpu},
+   |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+error[E0599]: no function or associated item named `new_test_ntt_8192` found for struct `CliffordFHEParams` in the current scope
+   --> examples/bench_division_comprehensive.rs:129:36
+    |
+129 |         8192 => CliffordFHEParams::new_test_ntt_8192(),
+    |                                    ^^^^^^^^^^^^^^^^^ function or associated item not found in `CliffordFHEParams`
+    |
+note: if you're trying to build a new `CliffordFHEParams` consider using one of the following associated functions:
+      CliffordFHEParams::new_test_ntt_1024
+      CliffordFHEParams::new_test_ntt_2048
+      CliffordFHEParams::new_test_ntt_4096
+      CliffordFHEParams::new_128bit
+      and 2 others
+   --> /root/ga_engine/src/clifford_fhe_v2/params.rs:69:5
+    |
+ 69 |     pub fn new_test_ntt_1024() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 99 |     pub fn new_test_ntt_2048() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+130 |     pub fn new_test_ntt_4096() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+164 |     pub fn new_128bit() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `new_test_ntt_1024` with a similar name
+    |
+129 -         8192 => CliffordFHEParams::new_test_ntt_8192(),
+129 +         8192 => CliffordFHEParams::new_test_ntt_1024(),
+    |
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_division_comprehensive.rs:317:18
+    |
+317 |             (ctx.mod_switch_to_level(&ct_ab, target)?, ctx.mod_switch_to_level(&ct_c, target)?)
+    |                  ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_division_comprehensive.rs:317:60
+    |
+317 |             (ctx.mod_switch_to_level(&ct_ab, target)?, ctx.mod_switch_to_level(&ct_c, target)?)
+    |                                                            ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+For more information about this error, try `rustc --explain E0599`.
+warning: `ga_engine` (example "bench_division_comprehensive") generated 1 warning
+error: could not compile `ga_engine` (example "bench_division_comprehensive") due to 3 previous errors; 1 warning emitted

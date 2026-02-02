@@ -1,0 +1,7 @@
+[package]
+name = "parallel_lift_core"
+version = "0.1.0"
+edition = "2021"
+description = "Stub crate - replace with real parallel_lift via .cargo/config.toml"
+
+[dependencies]

@@ -1,0 +1,157 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+warning: unused import: `multiply_ciphertexts_gpu`
+  --> examples/bench_division_comprehensive.rs:32:74
+   |
+32 |             inversion::{newton_raphson_inverse_gpu, scalar_division_gpu, multiply_ciphertexts_gpu},
+   |                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: fields `actual`, `initial_level`, and `final_level` are never read
+  --> examples/bench_division_comprehensive.rs:53:5
+   |
+48 | struct BenchResult {
+   |        ----------- fields in this struct
+...
+53 |     actual: f64,
+   |     ^^^^^^
+...
+58 |     initial_level: usize,
+   |     ^^^^^^^^^^^^^
+59 |     final_level: usize,
+   |     ^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `ga_engine` (example "bench_division_comprehensive") generated 2 warnings (run `cargo fix --example "bench_division_comprehensive" -p ga_engine` to apply 1 suggestion)
+    Finished `release` profile [optimized] target(s) in 10.47s
+     Running `target/release/examples/bench_division_comprehensive`
+
+╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+║                    COMPREHENSIVE HOMOMORPHIC DIVISION BENCHMARK                              ║
+║                              CUDA GPU Acceleration                                           ║
+╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 1: INITIALIZATION                                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  [1/5] Initializing CUDA GPU...
+CUDA Device: NVIDIA GeForce RTX 4090
+         CUDA device ready (148.34ms)
+  [2/5] Setting up FHE parameters...
+         Ring dimension (N): 1024
+         Number of primes: 3 (max level: 2)
+         Scale: 2^40
+         Security: ~128-bit
+  [3/5] Generating cryptographic keys...
+  [DEBUG] Creating NTT contexts for 3 primes (parallelized)...
+  [CPU] Prime 0: q=1152921504606584833, psi=693807653563943717, omega=643841514320604598
+  [CPU] Prime 1: q=1099511678977, psi=928976858506, omega=880665686236
+  [CPU] Prime 2: q=1099511683073, psi=1026523052212, omega=621364173719
+  [DEBUG] NTT contexts created in 0.00s
+  [DEBUG] Starting keygen for N=1024, 3 primes
+  [DEBUG] Step 1/5: Secret key sampled in 0.00s
+  [DEBUG] Step 2/5: Uniform poly sampled in 0.00s
+  [DEBUG] Step 3/5: Error poly sampled in 0.00s
+  [DEBUG] Step 4/5: Public key computed in 0.00s
+  [DEBUG] Step 5/5: Starting evaluation key generation...
+  [DEBUG] Step 5/5: Evaluation key generated in 0.00s
+         Keys generated (9.36ms)
+  [4/5] Initializing CUDA CKKS context...
+
+╔═══════════════════════════════════════════════════════════════╗
+║           Initializing CUDA CKKS Context                     ║
+╚═══════════════════════════════════════════════════════════════╝
+
+CUDA Device: NVIDIA GeForce RTX 4090
+Creating NTT contexts for 3 primes...
+  [CUDA] Prime 0: q=1152921504606584833, psi=693807653563943717, omega=643841514320604598
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 1: q=1099511678977, psi=928976858506, omega=880665686236
+CUDA Device: NVIDIA GeForce RTX 4090
+  [CUDA] Prime 2: q=1099511683073, psi=1026523052212, omega=621364173719
+CUDA Device: NVIDIA GeForce RTX 4090
+  Created 3/3 NTT contexts
+  [CUDA CKKS] NTT contexts created in 0.75s
+Loading RNS CUDA kernels...
+Caching twiddles and moduli on GPU for batched NTT...
+  ✓ Cached 96KB twiddles, psi powers, and 3 moduli on GPU in 0.013s
+  [CUDA CKKS] ✓ GPU-only CKKS context ready!
+
+         CUDA CKKS context ready (811.17ms)
+  [5/5] Generating CUDA relinearization keys...
+
+╔═══════════════════════════════════════════════════════════════╗
+║        Initializing CUDA Relinearization Keys                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Relinearization key parameters:
+  Base w: 2^16 = 65536
+  Number of primes (key level): 3
+  Number of gadget digits (dnum): 9
+
+Generating relinearization key...
+  Generated 5/9 key switching components
+  Generated 9/9 key switching components
+  Relinearization key generated in 0.01s
+
+         Relinearization keys ready (14.52ms)
+
+  ┌────────────────────────────────────────────────────────────────────────┐
+  │ INITIALIZATION SUMMARY                                                 │
+  ├────────────────────────┬───────────────────────────────────────────────┤
+  │ Parameter              │ Value                                         │
+  ├────────────────────────┼───────────────────────────────────────────────┤
+  │ Ring Dimension (N)     │                                          1024 │
+  │ Number of Primes       │                                             3 │
+  │ Max Level              │                                             2 │
+  │ Scale (log2)           │                                            40 │
+  │ Key Generation         │                                       9.36 ms │
+  │ Relin Key Generation   │                                      14.52 ms │
+  └────────────────────────┴───────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 2: BASIC DIVISION BENCHMARKS                                                        │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Max iterations possible with 2 levels: 0
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 3: PRECISION VS ITERATION COUNT                                                     │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Test case: 100/7 = 14.2857142857
+
+  ┌────────────┬──────────┬────────────┬────────────────────┬────────────┐
+  │ Iterations │ Depth    │ Time (ms)  │ Relative Error     │ Digits     │
+  ├────────────┼──────────┼────────────┼────────────────────┼────────────┤
+  └────────────┴──────────┴────────────┴────────────────────┴────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────┐
+│ SECTION 5: INVERSE COMPUTATION ONLY (1/x)                                                   │
+└──────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────┬────────────┬────────────┬────────────┬──────┬────────────┐
+  │ Test Case            │      Input │   Expected │     Actual │ Iter │   Time(ms) │
+  ├──────────────────────┼────────────┼────────────┼────────────┼──────┼────────────┤
+
+╔═══════════════════════════════════════════════════════════════╗
+║        CUDA GPU Newton-Raphson Inverse                       ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  Initial guess: 0.5
+  Iterations: 2
+  Initial level: 2
+  Encrypted initial guess at level 2
+
+  Newton-Raphson iteration 1/2...
+    Computed a·x_n (level 1)
+    Created trivial ciphertext for 2.0 (level 1)
+    Computed 2 - a·x_n (level 1)
+    Mod-switching ct_xn from level 2 to 1
+    Iteration complete (level 0)
+
+  Newton-Raphson iteration 2/2...
+    Mod-switching ct_a from level 2 to 0
+Error: "Cannot multiply at level 0 - no depth remaining"

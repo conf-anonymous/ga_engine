@@ -1,0 +1,38 @@
+{
+  "name": "GA Engine CUDA Development",
+  "image": "nvidia/cuda:12.3.0-devel-ubuntu22.04",
+
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {
+      "version": "latest",
+      "profile": "default"
+    },
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
+
+  "hostRequirements": {
+    "gpu": true
+  },
+
+  "runArgs": [
+    "--gpus=all"
+  ],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "vadimcn.vscode-lldb",
+        "tamasfe.even-better-toml"
+      ],
+      "settings": {
+        "rust-analyzer.checkOnSave.command": "clippy",
+        "rust-analyzer.cargo.features": ["v2-gpu-cuda"]
+      }
+    }
+  },
+
+  "postCreateCommand": "rustup component add clippy rustfmt && cargo build --features v2-gpu-cuda",
+
+  "remoteUser": "root"
+}

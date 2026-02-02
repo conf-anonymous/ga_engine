@@ -1,0 +1,136 @@
+   Compiling ga_engine v0.1.0 (/root/ga_engine)
+error[E0599]: no method named `mod_switch_to_level` found for reference `&CudaCkksContext` in the current scope
+  --> examples/bench_vector_normalization_pipeline.rs:99:17
+   |
+99 |             ctx.mod_switch_to_level(ct_x, ct_y_sq.level)?
+   |                 ^^^^^^^^^^^^^^^^^^^ method not found in `&CudaCkksContext`
+
+error[E0599]: no method named `encrypt_trivial` found for reference `&CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:108:28
+    |
+108 |         let ct_three = ctx.encrypt_trivial(&pt_three)?;
+    |                            ^^^^^^^^^^^^^^^ method not found in `&CudaCkksContext`
+
+error[E0599]: no method named `sub` found for reference `&CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:109:27
+    |
+109 |         let ct_diff = ctx.sub(&ct_three, &ct_xy_sq)?;
+    |                           ^^^ method not found in `&CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for reference `&CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:113:17
+    |
+113 |             ctx.mod_switch_to_level(&ct_y, ct_diff.level)?
+    |                 ^^^^^^^^^^^^^^^^^^^ method not found in `&CudaCkksContext`
+
+error[E0599]: no method named `mult_plain` found for reference `&CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:121:20
+    |
+121 |         ct_y = ctx.mult_plain(&ct_product, &pt_half)?;
+    |                    ^^^^^^^^^^ method not found in `&CudaCkksContext`
+
+error[E0599]: no function or associated item named `new_test_ntt_8192` found for struct `CliffordFHEParams` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:153:37
+    |
+153 |     let params = CliffordFHEParams::new_test_ntt_8192();  // 9 primes for more depth
+    |                                     ^^^^^^^^^^^^^^^^^ function or associated item not found in `CliffordFHEParams`
+    |
+note: if you're trying to build a new `CliffordFHEParams` consider using one of the following associated functions:
+      CliffordFHEParams::new_test_ntt_1024
+      CliffordFHEParams::new_test_ntt_2048
+      CliffordFHEParams::new_test_ntt_4096
+      CliffordFHEParams::new_128bit
+      and 9 others
+   --> /root/ga_engine/src/clifford_fhe_v2/params.rs:69:5
+    |
+ 69 |     pub fn new_test_ntt_1024() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+ 99 |     pub fn new_test_ntt_2048() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+130 |     pub fn new_test_ntt_4096() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+164 |     pub fn new_128bit() -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+help: there is an associated function `new_test_ntt_1024` with a similar name
+    |
+153 -     let params = CliffordFHEParams::new_test_ntt_8192();  // 9 primes for more depth
+153 +     let params = CliffordFHEParams::new_test_ntt_1024();  // 9 primes for more depth
+    |
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:288:17
+    |
+288 |             ctx.mod_switch_to_level(&ct_y_sq, ct_x_sq.level)?
+    |                 ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:296:17
+    |
+296 |             ctx.mod_switch_to_level(&ct_z_sq, ct_sum1.level)?
+    |                 ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:383:32
+    |
+383 |         let ct_x_aligned = ctx.mod_switch_to_level(&ct_x, ct_inv_mag.level)?;
+    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:384:32
+    |
+384 |         let ct_y_aligned = ctx.mod_switch_to_level(&ct_y, ct_inv_mag.level)?;
+    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:385:32
+    |
+385 |         let ct_z_aligned = ctx.mod_switch_to_level(&ct_z, ct_inv_mag.level)?;
+    |                                ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0689]: can't call method `sqrt` on ambiguous numeric type `{float}`
+   --> examples/bench_vector_normalization_pipeline.rs:450:22
+    |
+450 |     let mag = mag_sq.sqrt();
+    |                      ^^^^
+    |
+help: you must specify a type for this binding, like `f32`
+    |
+449 |     let mag_sq: f32 = v[0]*v[0] + v[1]*v[1] + v[2]*v[2];
+    |               +++++
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:477:25
+    |
+477 |     let ct_y_sq_a = ctx.mod_switch_to_level(&ct_y_sq, ct_x_sq.level)?;
+    |                         ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:479:25
+    |
+479 |     let ct_z_sq_a = ctx.mod_switch_to_level(&ct_z_sq, ct_sum1.level)?;
+    |                         ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:495:22
+    |
+495 |     let ct_x_a = ctx.mod_switch_to_level(&ct_x, ct_inv_mag.level)?;
+    |                      ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:496:22
+    |
+496 |     let ct_y_a = ctx.mod_switch_to_level(&ct_y, ct_inv_mag.level)?;
+    |                      ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+error[E0599]: no method named `mod_switch_to_level` found for struct `CudaCkksContext` in the current scope
+   --> examples/bench_vector_normalization_pipeline.rs:497:22
+    |
+497 |     let ct_z_a = ctx.mod_switch_to_level(&ct_z, ct_inv_mag.level)?;
+    |                      ^^^^^^^^^^^^^^^^^^^ method not found in `CudaCkksContext`
+
+Some errors have detailed explanations: E0599, E0689.
+For more information about an error, try `rustc --explain E0599`.
+error: could not compile `ga_engine` (example "bench_vector_normalization_pipeline") due to 17 previous errors
