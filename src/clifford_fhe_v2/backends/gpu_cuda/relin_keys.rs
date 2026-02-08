@@ -579,11 +579,11 @@ impl CudaRelinKeys {
                 }
             }
 
-            // Multiply d_i · b_i using GPU NTT (SEQUENTIAL version - same as EVK generation)
-            // CRITICAL: Use the same multiplication method as EVK generation to ensure consistency!
-            let d_b = self.gpu_multiply_flat_ntt(d_i, b_i, num_primes, ntt_contexts)?;
-            // Multiply d_i · a_i using GPU NTT (SEQUENTIAL version - same as EVK generation)
-            let d_a = self.gpu_multiply_flat_ntt(d_i, a_i, num_primes, ntt_contexts)?;
+            // Multiply d_i · b_i using GPU NTT (BATCHED version - all primes at once!)
+            // Phase 4A optimization: batched NTT reduces kernel launches from ~4032 to ~112 per relin
+            let d_b = self.gpu_multiply_flat_ntt_batched(d_i, b_i, num_primes, ckks_ctx)?;
+            // Multiply d_i · a_i using GPU NTT (BATCHED version - all primes at once!)
+            let d_a = self.gpu_multiply_flat_ntt_batched(d_i, a_i, num_primes, ckks_ctx)?;
 
             // Debug: print result of multiplication
             if std::env::var("RELIN_DEBUG").is_ok() && digit_idx == 0 {
@@ -632,6 +632,57 @@ impl CudaRelinKeys {
                     println!();
                 }
             }
+        }
+
+        Ok((c0_acc, c1_acc))
+    }
+
+    /// GPU-resident relinearization: takes CudaSlice inputs, returns flat CPU data
+    ///
+    /// Phase 4E: Uses batched NTT and GPU accumulation via ckks_ctx.
+    /// c0/c1/c2 are on GPU in flat layout from multiply_ciphertexts_tensored_gpu.
+    /// Downloads intermediate results and uses ckks_ctx methods for add/sub.
+    pub fn apply_relinearization_gpu_resident(
+        &self,
+        gpu_c0: &cudarc::driver::CudaSlice<u64>,
+        gpu_c1: &cudarc::driver::CudaSlice<u64>,
+        gpu_c2: &cudarc::driver::CudaSlice<u64>,
+        level: usize,
+        ckks_ctx: &super::ckks::CudaCkksContext,
+    ) -> Result<(Vec<u64>, Vec<u64>), String> {
+        let relin_key = self.relin_key.as_ref()
+            .ok_or_else(|| "Relinearization key not generated".to_string())?;
+
+        let n = self.params.n;
+        let num_primes = level + 1;
+
+        // Download c2 for gadget decomposition (CPU operation - uses BigInt CRT)
+        // Use ckks_ctx device since c0/c1/c2 were allocated there
+        let c2_cpu = ckks_ctx.device().device.dtoh_sync_copy(gpu_c2)
+            .map_err(|e| format!("Failed to download c2: {:?}", e))?;
+        let digits = self.gadget_decompose(&c2_cpu, num_primes)?;
+
+        // Download c0 and c1 as initial accumulators
+        let mut c0_acc = ckks_ctx.device().device.dtoh_sync_copy(gpu_c0)
+            .map_err(|e| format!("Failed to download c0: {:?}", e))?;
+        let mut c1_acc = ckks_ctx.device().device.dtoh_sync_copy(gpu_c1)
+            .map_err(|e| format!("Failed to download c1: {:?}", e))?;
+
+        for (digit_idx, d_i) in digits.iter().enumerate() {
+            if digit_idx >= relin_key.ks_components.len() {
+                break;
+            }
+
+            let (b_i, a_i) = &relin_key.ks_components[digit_idx];
+
+            // Batched NTT multiply on GPU using ckks_ctx (has the loaded kernels)
+            let d_b = self.gpu_multiply_flat_ntt_batched(d_i, b_i, num_primes, ckks_ctx)?;
+            let d_a = self.gpu_multiply_flat_ntt_batched(d_i, a_i, num_primes, ckks_ctx)?;
+
+            // c0_acc -= d·b (SUBTRACTION)
+            c0_acc = ckks_ctx.subtract_polynomials_gpu(&c0_acc, &d_b, num_primes)?;
+            // c1_acc += d·a (ADDITION)
+            c1_acc = ckks_ctx.add_polynomials_gpu(&c1_acc, &d_a, num_primes)?;
         }
 
         Ok((c0_acc, c1_acc))

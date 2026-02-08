@@ -491,6 +491,51 @@ impl CudaRotationKeys {
         Ok(result)
     }
 
+    /// GPU polynomial multiplication using BATCHED NTT (all primes at once)
+    ///
+    /// Phase 4D: Mirrors CudaRelinKeys::gpu_multiply_flat_ntt_batched
+    /// Uses negacyclic convolution via twist/untwist
+    fn gpu_multiply_flat_ntt_batched(
+        &self,
+        poly1: &[u64],
+        poly2: &[u64],
+        num_primes: usize,
+        ckks_ctx: &super::ckks::CudaCkksContext,
+    ) -> Result<Vec<u64>, String> {
+        let n = self.params.n;
+
+        // Upload to GPU ONCE
+        let mut gpu_p1 = self.device.device.htod_copy(poly1[..n * num_primes].to_vec())
+            .map_err(|e| format!("Failed to upload poly1: {:?}", e))?;
+        let mut gpu_p2 = self.device.device.htod_copy(poly2[..n * num_primes].to_vec())
+            .map_err(|e| format!("Failed to upload poly2: {:?}", e))?;
+
+        // TWIST for negacyclic convolution
+        ckks_ctx.apply_negacyclic_twist_gpu_public(&mut gpu_p1, num_primes)?;
+        ckks_ctx.apply_negacyclic_twist_gpu_public(&mut gpu_p2, num_primes)?;
+
+        // Forward NTT - batched for all primes
+        ckks_ctx.ntt_forward_batched_gpu(&mut gpu_p1, num_primes)?;
+        ckks_ctx.ntt_forward_batched_gpu(&mut gpu_p2, num_primes)?;
+
+        // Pointwise multiply - all primes on GPU
+        let mut gpu_result = self.device.device.alloc_zeros::<u64>(n * num_primes)
+            .map_err(|e| format!("Failed to allocate gpu_result: {:?}", e))?;
+        ckks_ctx.ntt_pointwise_multiply_batched_gpu(&gpu_p1, &gpu_p2, &mut gpu_result, num_primes)?;
+
+        // Inverse NTT - batched
+        ckks_ctx.ntt_inverse_batched_gpu(&mut gpu_result, num_primes)?;
+
+        // UNTWIST for negacyclic result
+        ckks_ctx.apply_negacyclic_untwist_gpu_public(&mut gpu_result, num_primes)?;
+
+        // Download final result ONCE
+        let result = self.device.device.dtoh_sync_copy(&gpu_result)
+            .map_err(|e| format!("Failed to download result: {:?}", e))?;
+
+        Ok(result)
+    }
+
     /// Multiply two polynomials using CPU schoolbook (flat RNS layout)
     /// DEPRECATED: Use gpu_multiply_flat_ntt() instead for much better performance
     fn cpu_multiply_flat(&self, a: &[u64], b: &[u64], num_primes: usize) -> Result<Vec<u64>, String> {
@@ -530,13 +575,14 @@ impl CudaRotationKeys {
 
     /// Apply rotation key using GPU NTT for polynomial multiplication
     ///
-    /// This is MUCH faster than the CPU version
+    /// Phase 4D: Updated to accept ckks_ctx for batched NTT
     pub fn apply_rotation_key_gpu(
         &self,
         c1_galois: &[u64],
         galois_elt: u64,
         level: usize,
         ntt_contexts: &[super::ntt::CudaNttContext],
+        ckks_ctx: Option<&super::ckks::CudaCkksContext>,
     ) -> Result<(Vec<u64>, Vec<u64>), String> {
         // Get rotation key
         let rot_key = self.keys.get(&galois_elt)
@@ -556,10 +602,16 @@ impl CudaRotationKeys {
         for (digit_idx, d_i) in digits.iter().enumerate() {
             let (b_i, a_i) = &rot_key.ks_components[digit_idx];
 
-            // Multiply d_i · b_i using GPU NTT
-            let d_b = self.gpu_multiply_flat_ntt(d_i, b_i, num_primes, ntt_contexts)?;
-            // Multiply d_i · a_i using GPU NTT
-            let d_a = self.gpu_multiply_flat_ntt(d_i, a_i, num_primes, ntt_contexts)?;
+            // Phase 4D: Use batched NTT when ckks_ctx is available
+            let (d_b, d_a) = if let Some(ctx) = ckks_ctx {
+                let db = self.gpu_multiply_flat_ntt_batched(d_i, b_i, num_primes, ctx)?;
+                let da = self.gpu_multiply_flat_ntt_batched(d_i, a_i, num_primes, ctx)?;
+                (db, da)
+            } else {
+                let db = self.gpu_multiply_flat_ntt(d_i, b_i, num_primes, ntt_contexts)?;
+                let da = self.gpu_multiply_flat_ntt(d_i, a_i, num_primes, ntt_contexts)?;
+                (db, da)
+            };
 
             // Accumulate
             for i in 0..n * num_primes {

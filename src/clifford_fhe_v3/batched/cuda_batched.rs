@@ -212,22 +212,16 @@ pub fn reassemble_components_cuda(
 }
 
 /// Negate a CUDA ciphertext: compute -ct (mod q for each prime)
+///
+/// Phase 4C: Uses GPU kernel instead of CPU loop
 fn negate_cuda_ciphertext(ct: &CudaCiphertext, cuda_ctx: &CudaCkksContext) -> CudaCiphertext {
-    let params = cuda_ctx.params();
     let n = ct.n;
     let num_primes = ct.num_primes;
 
-    let mut neg_c0 = vec![0u64; ct.c0.len()];
-    let mut neg_c1 = vec![0u64; ct.c1.len()];
-
-    for coeff_idx in 0..n {
-        for prime_idx in 0..num_primes {
-            let idx = coeff_idx * num_primes + prime_idx;
-            let q = params.moduli[prime_idx];
-            neg_c0[idx] = if ct.c0[idx] == 0 { 0 } else { q - ct.c0[idx] };
-            neg_c1[idx] = if ct.c1[idx] == 0 { 0 } else { q - ct.c1[idx] };
-        }
-    }
+    let neg_c0 = cuda_ctx.negate_strided_gpu(&ct.c0, num_primes, num_primes)
+        .expect("GPU negate c0 failed");
+    let neg_c1 = cuda_ctx.negate_strided_gpu(&ct.c1, num_primes, num_primes)
+        .expect("GPU negate c1 failed");
 
     CudaCiphertext {
         c0: neg_c0,

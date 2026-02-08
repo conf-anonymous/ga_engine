@@ -261,6 +261,58 @@ __global__ void rns_negate(
 }
 
 /**
+ * Polynomial negation in RNS representation (strided layout)
+ * b[coeff_idx * stride + prime_idx] = q - a[coeff_idx * stride + prime_idx] for each active prime
+ *
+ * Phase 4C: GPU-accelerated negate for strided ciphertext data
+ */
+__global__ void rns_negate_strided(
+    const unsigned long long* a,         // Input polynomial (strided)
+    unsigned long long* b,               // Output polynomial (strided)
+    const unsigned long long* moduli,    // RNS moduli
+    unsigned int n,                      // Ring dimension
+    unsigned int stride,                 // Stride (usually num_primes)
+    unsigned int num_primes              // Number of active primes
+) {
+    unsigned int coeff_idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (coeff_idx >= n) return;
+
+    for (unsigned int prime_idx = 0; prime_idx < num_primes; prime_idx++) {
+        unsigned int idx = coeff_idx * stride + prime_idx;
+        unsigned long long q = moduli[prime_idx];
+        b[idx] = (a[idx] == 0) ? 0 : (q - a[idx]);
+    }
+}
+
+/**
+ * Polynomial addition in RNS representation (strided layout)
+ * c[coeff_idx * stride + prime_idx] = (a + b) mod q for each active prime
+ *
+ * Phase 4C: GPU-accelerated add for strided ciphertext data
+ */
+__global__ void rns_add_strided(
+    const unsigned long long* a,
+    const unsigned long long* b,
+    unsigned long long* c,
+    const unsigned long long* moduli,
+    unsigned int n,
+    unsigned int stride,
+    unsigned int num_primes
+) {
+    unsigned int coeff_idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (coeff_idx >= n) return;
+
+    for (unsigned int prime_idx = 0; prime_idx < num_primes; prime_idx++) {
+        unsigned int idx = coeff_idx * stride + prime_idx;
+        unsigned long long q = moduli[prime_idx];
+        unsigned long long sum = a[idx] + b[idx];
+        c[idx] = (sum >= q) ? (sum - q) : sum;
+    }
+}
+
+/**
  * Pointwise multiplication in RNS representation (strided layout)
  * c[i] = (a[i] * b[i]) % q for each RNS limb
  *

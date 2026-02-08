@@ -232,6 +232,8 @@ impl CudaCkksContext {
             "rns_add",
             "rns_sub",
             "rns_negate",
+            "rns_negate_strided",    // Phase 4C
+            "rns_add_strided",       // Phase 4C
             "rns_pointwise_multiply_strided",
             "rns_negacyclic_twist",
             "rns_negacyclic_untwist",
@@ -328,6 +330,11 @@ impl CudaCkksContext {
     /// Get reference to rescale inversion table
     pub fn rescale_inv_table(&self) -> &[Vec<u64>] {
         &self.rescale_inv_table
+    }
+
+    /// Get reference to GPU-cached moduli (Phase 4E)
+    pub fn gpu_moduli_ref(&self) -> Option<&CudaSlice<u64>> {
+        self.gpu_moduli.as_ref()
     }
 
     /// Get reference to psi values per prime (for negacyclic twist)
@@ -996,30 +1003,18 @@ impl CudaCkksContext {
         })
     }
 
-    /// Add two ciphertexts (CPU operation, simple)
+    /// Add two ciphertexts using GPU kernel
+    ///
+    /// Phase 4C: Uses GPU rns_add_strided kernel instead of CPU loop
     pub fn add(&self, ct1: &CudaCiphertext, ct2: &CudaCiphertext) -> Result<CudaCiphertext, String> {
         if ct1.level != ct2.level {
             return Err("Ciphertexts must be at same level".to_string());
         }
 
-        // Use the actual num_primes from the input ciphertexts (not params.moduli.len())
         let num_active_primes = ct1.num_primes;
-        let mut c0 = vec![0u64; self.params.n * num_active_primes];
-        let mut c1 = vec![0u64; self.params.n * num_active_primes];
 
-        for coeff_idx in 0..self.params.n {
-            for prime_idx in 0..num_active_primes {
-                let q = self.params.moduli[prime_idx];
-                // Use num_active_primes (actual stride) instead of params.moduli.len()
-                let idx = coeff_idx * num_active_primes + prime_idx;
-
-                let sum0 = ct1.c0[idx] + ct2.c0[idx];
-                c0[idx] = if sum0 >= q { sum0 - q } else { sum0 };
-
-                let sum1 = ct1.c1[idx] + ct2.c1[idx];
-                c1[idx] = if sum1 >= q { sum1 - q } else { sum1 };
-            }
-        }
+        let c0 = self.add_strided_gpu(&ct1.c0, &ct2.c0, num_active_primes, num_active_primes)?;
+        let c1 = self.add_strided_gpu(&ct1.c1, &ct2.c1, num_active_primes, num_active_primes)?;
 
         Ok(CudaCiphertext {
             c0,
@@ -1027,7 +1022,7 @@ impl CudaCkksContext {
             n: self.params.n,
             num_primes: num_active_primes,
             level: ct1.level,
-            scale: ct1.scale,  // Assuming same scale
+            scale: ct1.scale,
         })
     }
 
@@ -1662,9 +1657,7 @@ impl CudaCkksContext {
                 .map_err(|e| format!("Batched bit-reversal failed: {:?}", e))?;
         }
 
-        // CRITICAL: Synchronize after bit-reversal before starting NTT stages
-        self.device.device.synchronize()
-            .map_err(|e| format!("Sync after bit-reversal failed: {:?}", e))?;
+        // Phase 4B: No sync needed after bit-reversal - same CUDA stream guarantees ordering
 
         // Batched NTT stages
         let mut m = 1usize;
@@ -1694,10 +1687,8 @@ impl CudaCkksContext {
                 .map_err(|e| format!("Batched NTT stage {} failed: {:?}", stage, e))?;
             }
 
-            // CRITICAL: Synchronize after each stage to ensure all threads complete
-            // before the next stage reads/writes the same memory locations
-            self.device.device.synchronize()
-                .map_err(|e| format!("Sync after forward NTT stage {} failed: {:?}", stage, e))?;
+            // Phase 4B: No per-stage sync needed - CUDA default stream guarantees
+            // sequential execution. Removing these eliminates ~3-5μs stall per sync.
 
             m *= 2;
         }
@@ -1755,10 +1746,7 @@ impl CudaCkksContext {
                 .map_err(|e| format!("Batched inverse NTT stage {} failed: {:?}", stage, e))?;
             }
 
-            // CRITICAL: Synchronize after each stage to ensure all threads complete
-            // before the next stage reads/writes the same memory locations
-            self.device.device.synchronize()
-                .map_err(|e| format!("Sync after inverse NTT stage {} failed: {:?}", stage, e))?;
+            // Phase 4B: No per-stage sync needed - CUDA default stream guarantees ordering
         }
 
         // Step 2: Bit-reversal + scaling by n^(-1) at the END
@@ -2221,6 +2209,151 @@ impl CudaCkksContext {
         let result = self.device.device.dtoh_sync_copy(&c_gpu)
             .map_err(|e| format!("Failed to copy result from GPU: {:?}", e))?;
 
+        Ok(result)
+    }
+
+    /// GPU-resident exact rescale: takes CudaSlice input, returns CudaSlice output
+    ///
+    /// Phase 4E: Eliminates CPU↔GPU round-trips for rescaling.
+    /// Input is flat layout on GPU, output is flat layout on GPU.
+    pub fn exact_rescale_gpu_resident(
+        &self,
+        gpu_input: &CudaSlice<u64>,
+        level: usize,
+    ) -> Result<CudaSlice<u64>, String> {
+        use cudarc::driver::LaunchAsync;
+
+        if level == 0 {
+            return Err("Cannot rescale at level 0".to_string());
+        }
+
+        let n = self.params.n;
+        let moduli = &self.params.moduli[..=level];
+        let num_primes_in = moduli.len();
+        let num_primes_out = num_primes_in - 1;
+
+        if gpu_input.len() != n * num_primes_in {
+            return Err(format!("Input size mismatch: expected {}, got {}", n * num_primes_in, gpu_input.len()));
+        }
+
+        let qlast_inv = &self.rescale_inv_table[level - 1];
+
+        let mut gpu_output = self.device.device.alloc_zeros::<u64>(n * num_primes_out)
+            .map_err(|e| format!("Failed to allocate output: {:?}", e))?;
+
+        let gpu_moduli = self.device.device.htod_copy(moduli.to_vec())
+            .map_err(|e| format!("Failed to copy moduli: {:?}", e))?;
+        let gpu_qtop_inv = self.device.device.htod_copy(qlast_inv.clone())
+            .map_err(|e| format!("Failed to copy qtop_inv: {:?}", e))?;
+
+        let func = self.device.device.get_func("rns_module", "rns_exact_rescale")
+            .ok_or("Failed to get rns_exact_rescale function")?;
+
+        let config = self.device.get_launch_config(n);
+        unsafe {
+            func.launch(config, (
+                gpu_input,
+                &mut gpu_output,
+                &gpu_moduli,
+                &gpu_qtop_inv,
+                n as u32,
+                num_primes_in as u32,
+                num_primes_out as u32,
+            )).map_err(|e| format!("Rescale kernel launch failed: {:?}", e))?;
+        }
+
+        Ok(gpu_output)
+    }
+
+    /// GPU-accelerated negate for strided RNS layout
+    ///
+    /// Phase 4C: Replaces CPU loop with single GPU kernel launch.
+    /// Computes b[i] = q - a[i] for each active prime.
+    pub fn negate_strided_gpu(&self, a: &[u64], stride: usize, num_primes: usize) -> Result<Vec<u64>, String> {
+        use cudarc::driver::LaunchAsync;
+
+        let n = self.params.n;
+
+        // Upload input to GPU
+        let a_gpu = self.device.device.htod_copy(a[..n * stride].to_vec())
+            .map_err(|e| format!("Failed to upload a: {:?}", e))?;
+        let mut b_gpu = self.device.device.alloc_zeros::<u64>(n * stride)
+            .map_err(|e| format!("Failed to allocate b: {:?}", e))?;
+
+        let gpu_moduli = self.gpu_moduli.as_ref()
+            .ok_or("GPU moduli not initialized")?;
+
+        let func = self.device.device.get_func("rns_module", "rns_negate_strided")
+            .ok_or("rns_negate_strided kernel not found")?;
+
+        let threads_per_block = 256;
+        let num_blocks = (n + threads_per_block - 1) / threads_per_block;
+        let cfg = LaunchConfig {
+            grid_dim: (num_blocks as u32, 1, 1),
+            block_dim: (threads_per_block as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            func.launch(cfg, (
+                &a_gpu,
+                &mut b_gpu,
+                gpu_moduli,
+                n as u32,
+                stride as u32,
+                num_primes as u32,
+            )).map_err(|e| format!("rns_negate_strided launch failed: {:?}", e))?;
+        }
+
+        let result = self.device.device.dtoh_sync_copy(&b_gpu)
+            .map_err(|e| format!("Failed to download negate result: {:?}", e))?;
+        Ok(result)
+    }
+
+    /// GPU-accelerated add for strided RNS layout
+    ///
+    /// Phase 4C: Replaces CPU loop with single GPU kernel launch.
+    /// Computes c[i] = (a[i] + b[i]) mod q for each active prime.
+    pub fn add_strided_gpu(&self, a: &[u64], b: &[u64], stride: usize, num_primes: usize) -> Result<Vec<u64>, String> {
+        use cudarc::driver::LaunchAsync;
+
+        let n = self.params.n;
+
+        let a_gpu = self.device.device.htod_copy(a[..n * stride].to_vec())
+            .map_err(|e| format!("Failed to upload a: {:?}", e))?;
+        let b_gpu = self.device.device.htod_copy(b[..n * stride].to_vec())
+            .map_err(|e| format!("Failed to upload b: {:?}", e))?;
+        let mut c_gpu = self.device.device.alloc_zeros::<u64>(n * stride)
+            .map_err(|e| format!("Failed to allocate c: {:?}", e))?;
+
+        let gpu_moduli = self.gpu_moduli.as_ref()
+            .ok_or("GPU moduli not initialized")?;
+
+        let func = self.device.device.get_func("rns_module", "rns_add_strided")
+            .ok_or("rns_add_strided kernel not found")?;
+
+        let threads_per_block = 256;
+        let num_blocks = (n + threads_per_block - 1) / threads_per_block;
+        let cfg = LaunchConfig {
+            grid_dim: (num_blocks as u32, 1, 1),
+            block_dim: (threads_per_block as u32, 1, 1),
+            shared_mem_bytes: 0,
+        };
+
+        unsafe {
+            func.launch(cfg, (
+                &a_gpu,
+                &b_gpu,
+                &mut c_gpu,
+                gpu_moduli,
+                n as u32,
+                stride as u32,
+                num_primes as u32,
+            )).map_err(|e| format!("rns_add_strided launch failed: {:?}", e))?;
+        }
+
+        let result = self.device.device.dtoh_sync_copy(&c_gpu)
+            .map_err(|e| format!("Failed to download add result: {:?}", e))?;
         Ok(result)
     }
 }

@@ -119,12 +119,13 @@ impl CudaCiphertext {
         // Compute Galois element for this rotation
         let galois_elt = rot_ctx.galois_element(step);
 
-        // Apply rotation key to c1(X^g) using GPU NTT
+        // Apply rotation key to c1(X^g) using GPU NTT (Phase 4D: batched via ckks_ctx)
         let (c0_ks, c1_ks) = rot_keys.apply_rotation_key_gpu(
             &c1_galois,
             galois_elt,
             level,
             ctx.ntt_contexts(),
+            Some(ctx),
         )?;
 
         // Add c0(X^g) + c0_ks

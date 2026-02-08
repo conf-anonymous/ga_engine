@@ -144,12 +144,13 @@ pub fn cuda_rotate_ciphertext(
     // Step 2: Compute Galois element for this rotation
     let galois_elt = rotation_ctx.galois_element(rotation_steps as i32);
 
-    // Step 3: Apply rotation key to c1(X^g) using GPU NTT
+    // Step 3: Apply rotation key to c1(X^g) using GPU NTT (Phase 4D: batched)
     let (c0_ks, c1_ks) = rotation_keys.apply_rotation_key_gpu(
         &c1_galois,
         galois_elt,
         level,
         ckks_ctx.ntt_contexts(),
+        Some(ckks_ctx),
     )?;
 
     // Step 4: Add c0(X^g) + c0_ks using V2 GPU function

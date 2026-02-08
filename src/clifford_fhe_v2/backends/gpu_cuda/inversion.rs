@@ -53,59 +53,66 @@ pub fn multiply_ciphertexts_gpu(
     relin_keys: &CudaRelinKeys,
     ctx: &CudaCkksContext,
 ) -> Result<CudaCiphertext, String> {
-    // Level check - caller must align levels first using mod_switch_to_level
+    // Phase 4E: Use fused GPU-resident pipeline
+    multiply_ciphertexts_gpu_fused(ct1, ct2, relin_keys, ctx)
+}
+
+/// Fused multiply pipeline: tensor multiply → relinearize → rescale (all GPU-resident)
+///
+/// Phase 4E: Eliminates ~30 CPU↔GPU round-trips per multiply by keeping data on GPU.
+/// The only CPU round-trip is for gadget decomposition (BigInt CRT, unavoidable).
+pub fn multiply_ciphertexts_gpu_fused(
+    ct1: &CudaCiphertext,
+    ct2: &CudaCiphertext,
+    relin_keys: &CudaRelinKeys,
+    ctx: &CudaCkksContext,
+) -> Result<CudaCiphertext, String> {
     if ct1.level != ct2.level {
         return Err(format!(
             "Level mismatch: {} vs {}. Use mod_switch_to_level() to align before multiplication.",
             ct1.level, ct2.level
         ));
     }
-
     if ct1.level == 0 {
         return Err("Cannot multiply at level 0 - no depth remaining".to_string());
     }
 
-    // Step 1: Tensored multiplication (produces c0, c1, c2)
-    let (c0, c1, c2) = ctx.multiply_ciphertexts_tensored(ct1, ct2)?;
+    let n = ct1.n;
+    let num_active_primes = ct1.level + 1;
 
-    // Step 2: Relinearization (c0, c1, c2) → (c0', c1')
-    // Note: c0, c1, c2 are in FLAT layout from multiply_ciphertexts_tensored
-    // apply_relinearization_gpu returns results in FLAT layout
-    let (c0_relin_flat, c1_relin_flat) = relin_keys.apply_relinearization_gpu(
-        &c0,
-        &c1,
-        &c2,
+    // Step 1: Tensored multiplication → GPU-resident CudaSlice<u64> in flat layout
+    let (gpu_c0, gpu_c1, gpu_c2) = ctx.multiply_ciphertexts_tensored_gpu(ct1, ct2)?;
+
+    // Step 2: GPU-resident relinearization (c0, c1, c2) → (c0', c1') flat CPU
+    // Uses batched NTT (Phase 4A) and GPU add/sub via ckks_ctx
+    let (c0_relin_flat, c1_relin_flat) = relin_keys.apply_relinearization_gpu_resident(
+        &gpu_c0, &gpu_c1, &gpu_c2,
         ct1.level,
-        ctx.ntt_contexts(),
         ctx,
     )?;
 
-    // Step 3: Convert from flat layout back to strided layout
-    // CRITICAL: CudaCiphertext expects strided layout: c[coeff_idx * num_primes + prime_idx]
-    // But relinearization returns flat layout: c[prime_idx * n + coeff_idx]
-    //
-    // IMPORTANT: Use num_active_primes as BOTH stride AND num_primes!
-    // Metal uses num_primes = level + 1 (actual active primes), not the max number.
-    // Using ct1.num_primes (max=30) when only num_active_primes (e.g. 22) are valid
-    // causes garbage data to be read during rescaling.
-    let num_active_primes = ct1.level + 1;
-    let c0_relin = ctx.flat_to_strided(&c0_relin_flat, ct1.n, num_active_primes, num_active_primes);
-    let c1_relin = ctx.flat_to_strided(&c1_relin_flat, ct1.n, num_active_primes, num_active_primes);
+    // Step 3: Rescale flat layout data on GPU
+    let c0_rescaled = ctx.exact_rescale_gpu_flat(&c0_relin_flat, ct1.level)?;
+    let c1_rescaled = ctx.exact_rescale_gpu_flat(&c1_relin_flat, ct1.level)?;
 
-    // Step 4: Create intermediate ciphertext with doubled scale
-    // Use num_active_primes as num_primes (matches Metal behavior)
+    // Step 4: Convert flat → strided layout
+    let new_level = ct1.level - 1;
+    let num_primes_after = new_level + 1;
+    let c0_strided = ctx.flat_to_strided(&c0_rescaled, n, num_primes_after, num_primes_after);
+    let c1_strided = ctx.flat_to_strided(&c1_rescaled, n, num_primes_after, num_primes_after);
+
     let result_scale = ct1.scale * ct2.scale;
-    let ct_product = CudaCiphertext {
-        c0: c0_relin,
-        c1: c1_relin,
-        n: ct1.n,
-        num_primes: num_active_primes,  // FIXED: Use active primes, not max primes
-        level: ct1.level,
-        scale: result_scale,
-    };
+    let q_last = ctx.params().moduli[ct1.level];
+    let new_scale = result_scale / q_last as f64;
 
-    // Step 4: Rescale to bring scale back to ~Δ and drop one level
-    ct_product.rescale_to_next(ctx)
+    Ok(CudaCiphertext {
+        c0: c0_strided,
+        c1: c1_strided,
+        n,
+        num_primes: num_primes_after,
+        level: new_level,
+        scale: new_scale,
+    })
 }
 
 /// Compute homomorphic inverse using Newton-Raphson iteration (CUDA GPU)
