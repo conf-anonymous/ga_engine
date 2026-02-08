@@ -34,6 +34,8 @@ pub mod model;
 pub mod training;
 pub mod encoding;
 pub mod simple_model;
+pub mod serialization;
+pub mod gp_classifier;
 
 pub use multivector::Multivector;
 pub use layers::{CliffordEmbedding, CliffordAggregation, CliffordPooling, CliffordClassifier};
@@ -41,3 +43,4 @@ pub use model::{CliffordPointNet, CliffordPointNetConfig};
 pub use training::{Trainer, TrainingConfig, TrainingMetrics};
 pub use encoding::encode_point_cloud;
 pub use simple_model::{SimpleCliffordNet, train_simple_net};
+pub use gp_classifier::{GPFeatureClassifier, encode_point_augmented, plaintext_geometric_product, compute_gp_features, train_gp_classifier};
