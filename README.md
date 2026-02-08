@@ -14,6 +14,47 @@ A production-candidate Rust framework for privacy-preserving computation, combin
 
 The framework achieves **production-candidate performance** through systematic optimization: from baseline reference implementation (V1) to hardware-accelerated backends featuring Metal and CUDA GPU support achieving **2,002× speedup**, delivering **sub-millisecond** homomorphic additions and **~217ms** ciphertext multiplications on NVIDIA RTX 4090 architecture.
 
+---
+
+## Headline Results: CliffordPointNet
+
+**Privacy-preserving 3D point cloud classification** with production-viable performance on encrypted data.
+
+### Performance Milestones (NVIDIA RTX 5090)
+
+| Configuration | Per Geometric Product | Security Level | Production Target |
+|---------------|----------------------|----------------|-------------------|
+| **V3 CUDA N=1024** | **17.68ms** | 80-bit | Exceeds <50ms |
+| **V3 CUDA N=8192** | **45.41ms** | 128-bit post-quantum | Meets <50ms |
+| V3 CPU N=1024 | 52.62ms | 80-bit | Borderline |
+| V3 CPU N=8192 | 304.79ms | 128-bit post-quantum | Baseline |
+
+### Accuracy Validation (40 test samples, 5 classes)
+
+| Metric | Result |
+|--------|--------|
+| **Encrypted vs Plaintext Agreement** | **100.0%** (40/40) |
+| **Accuracy Gap** | **0.0%** |
+| Max CKKS Error | 0.004 |
+
+**Key Finding**: Encryption introduces **zero accuracy degradation**. Every encrypted prediction exactly matches its plaintext counterpart.
+
+### GPU Speedups
+
+| N | CUDA vs CPU Speedup |
+|---|---------------------|
+| 1024 | **2.98×** |
+| 8192 | **6.71×** |
+
+### What This Means
+
+- **Production-Ready**: Both N=1024 and N=8192 configurations meet the <50ms target for practical applications
+- **Post-Quantum Secure**: N=8192 provides 128-bit security against quantum attacks
+- **Zero Accuracy Loss**: Homomorphic encryption preserves classification accuracy perfectly
+- **Batch Processing**: 64-512 multivectors processed simultaneously via SIMD slot packing
+
+---
+
 ## Technical Achievements
 
 ### Practical Homomorphic Division
@@ -274,6 +315,7 @@ Conservative estimate: λ ≥ 118 bits
 
 | Document | Description |
 |----------|-------------|
+| **[CliffordPointNet.md](CliffordPointNet.md)** | **Comprehensive guide**: API reference, benchmark reproduction, shell scripts |
 | **[CLIFFORD_FHE_VERSIONS.md](CLIFFORD_FHE_VERSIONS.md)** | Complete technical history: V1→V2→V3→V4→V5 evolution, implementations, performance |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | System design, backend architecture, module organization |
 | **[INSTALLATION.md](INSTALLATION.md)** | Setup guide, system requirements, platform-specific build instructions |
@@ -281,6 +323,8 @@ Conservative estimate: λ ≥ 118 bits
 | **[BENCHMARKS.md](BENCHMARKS.md)** | Performance benchmarks and optimization techniques |
 | **[COMMANDS.md](COMMANDS.md)** | Complete command reference for all builds, tests, and examples |
 | **[FEATURE_FLAGS.md](FEATURE_FLAGS.md)** | Feature flag reference and build configuration patterns |
+| **[docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md)** | Detailed benchmark results with RTX 5090 GPU timings |
+| **[docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md)** | CliffordPointNet implementation plan and status |
 
 ## Quick Start
 
