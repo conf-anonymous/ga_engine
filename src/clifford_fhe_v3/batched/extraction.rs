@@ -17,6 +17,10 @@ use crate::clifford_fhe_v3::bootstrapping::{rotate, RotationKeys};
 /// 2. Multiply by mask that zeros out slots 1-7, 9-15, 17-23, etc.
 /// 3. Result has component `i` of all multivectors at positions 0, 8, 16, ...
 ///
+/// All extracted components share the same slot layout (position 0 of each
+/// 8-slot block), which is essential for cross-component multiplication
+/// in the geometric product.
+///
 /// # Arguments
 ///
 /// * `batched` - Batched multivector ciphertext
@@ -26,7 +30,7 @@ use crate::clifford_fhe_v3::bootstrapping::{rotate, RotationKeys};
 ///
 /// # Returns
 ///
-/// Ciphertext with extracted component in strided positions
+/// Ciphertext with extracted component at positions 0, 8, 16, ...
 ///
 /// # Example
 ///
@@ -54,22 +58,28 @@ pub fn extract_component(
     let components = 8;
     let num_multivectors = num_slots / components;
 
-    // Pattern A: Create slot-domain mask (1s at component positions, 0s elsewhere)
-    // Layout A (interleaved): positions are component + i*components for i=0..num_multivectors
+    // Step 1: Rotate ciphertext so component i moves to position 0 of each block
+    // rotate(ct, k) shifts slot[j+k] → slot[j], so rotating by +component
+    // brings slot[component] → slot[0], slot[component+8] → slot[8], etc.
+    let rotated_ct = if component > 0 {
+        rotate(&batched.ciphertext, component as i32, rotation_keys)?
+    } else {
+        batched.ciphertext.clone()
+    };
+
+    // Step 2: Mask at position 0 of each 8-slot block [0, 8, 16, ...]
+    // This zeros out the other 7 components that shifted into positions 1-7
     let mut mask = vec![0.0; num_slots];
     for i in 0..num_multivectors {
-        let pos = component + i * components;
-        if pos < num_slots {
-            mask[pos] = 1.0;
-        }
+        mask[i * components] = 1.0;
     }
 
-    // Encode mask in slot domain at scale Δ
+    // Encode mask at the rotated ciphertext's level (rotation preserves level)
     use crate::clifford_fhe_v2::backends::cpu_optimized::ckks::Plaintext;
-    let pt_mask = Plaintext::encode(&mask, params.scale, params);
+    let pt_mask = Plaintext::encode_at_level(&mask, params.scale, params, rotated_ct.level);
 
-    // Multiply by mask (this rescales: scale ≈ Δ, level = L-1)
-    let extracted = batched.ciphertext.multiply_plain(&pt_mask, ckks_ctx);
+    // Multiply by mask (consumes 1 level via rescale)
+    let extracted = rotated_ct.multiply_plain(&pt_mask, ckks_ctx);
 
     Ok(extracted)
 }
@@ -160,26 +170,27 @@ fn align_for_add(
 
 /// Reassemble batched multivector from extracted components
 ///
-/// Inverse of extract_all_components. Takes 8 ciphertexts with
-/// components in their original positions and combines into full batch.
+/// Inverse of extract_all_components. Takes 8 ciphertexts where each
+/// has its component values at position 0 of each 8-slot block, and
+/// rotates them to their correct positions before summing.
 ///
-/// # Algorithm (Pattern A - no rotations needed)
+/// # Algorithm
 ///
-/// 1. Each extracted component already has non-zeros in its correct positions
-/// 2. Align levels and scales before each addition
-/// 3. Sum all components (positions with 0s remain 0, positions with values add correctly)
+/// 1. Component 0 stays at position 0 (no rotation needed)
+/// 2. Component i is rotated by -i to shift values from position 0 to position i
+/// 3. Align levels and scales, then sum all 8 shifted components
 ///
 /// # Arguments
 ///
-/// * `components` - Array of 8 ciphertexts with extracted components
-/// * `rotation_keys` - Rotation keys (not used in Pattern A)
+/// * `components` - Array of 8 ciphertexts, each with values at positions [0, 8, 16, ...]
+/// * `rotation_keys` - Rotation keys for shifting components to target positions
 /// * `ckks_ctx` - CKKS context
 /// * `batch_size` - Number of multivectors
 /// * `n` - Ring dimension
 ///
 /// # Returns
 ///
-/// Batched multivector with all components reassembled
+/// Batched multivector with all components at their correct slot positions
 pub fn reassemble_components(
     components: &[Ciphertext; 8],
     rotation_keys: &RotationKeys,
@@ -189,20 +200,24 @@ pub fn reassemble_components(
 ) -> Result<BatchedMultivector, String> {
     assert_eq!(components.len(), 8, "Must have exactly 8 components");
 
-    // Start with first component
+    // Component 0 is already at position 0 of each block - no rotation needed
     let mut result = components[0].clone();
 
-    // Add remaining components with scale/level alignment
-    for component_ct in components.iter().skip(1) {
+    // Components 1-7: rotate by -i to shift from position 0 to position i
+    // rotate(ct, -i) shifts slot[j] → slot[j+i], so values at [0, 8, 16, ...]
+    // move to [i, i+8, i+16, ...]
+    for i in 1..8 {
+        let shifted = rotate(&components[i], -(i as i32), rotation_keys)?;
+
         // Align levels and scales before addition
-        let (aligned_result, aligned_component) = align_for_add(
+        let (aligned_result, aligned_shifted) = align_for_add(
             result,
-            component_ct.clone(),
+            shifted,
             ckks_ctx,
         );
 
         // Add to accumulator
-        result = aligned_result.add(&aligned_component);
+        result = aligned_result.add(&aligned_shifted);
     }
 
     Ok(BatchedMultivector::new(result, batch_size))
@@ -239,6 +254,65 @@ fn create_stride_mask(count: usize, stride: usize, offset: usize, total_length: 
         }
     }
     mask
+}
+
+/// Mean-pool a batch: computes (1/N) * sum of all N multivectors,
+/// replicated into every batch slot.
+///
+/// Uses multiply-by-scalar + rotate-and-add pattern:
+/// 1. Scale all slots by 1/batch_size via multiply_plain
+/// 2. Rotate-and-add: for each power-of-2 step from 8 to 8*(batch_size/2),
+///    rotate by step and add, doubling the accumulated count each time
+///
+/// After completion, every 8-slot block contains the mean multivector.
+///
+/// # Arguments
+///
+/// * `batched` - Batched multivector to pool
+/// * `rotation_keys` - Rotation keys (needs powers of 8 up to 8*batch_size/2)
+/// * `ckks_ctx` - CKKS context
+///
+/// # Returns
+///
+/// Batched multivector where every slot block contains the mean
+pub fn mean_pool_batch(
+    batched: &BatchedMultivector,
+    rotation_keys: &RotationKeys,
+    ckks_ctx: &CkksContext,
+) -> Result<BatchedMultivector, String> {
+    let batch_size = batched.batch_size;
+    let num_slots = batched.n / 2;
+
+    // Step 1: Scale by 1/batch_size via plaintext multiplication
+    let scale_factor = 1.0 / batch_size as f64;
+    let scale_vec: Vec<f64> = vec![scale_factor; num_slots];
+    let pt_scale = Plaintext::encode(&scale_vec, ckks_ctx.params.scale, &ckks_ctx.params);
+    let mut result_ct = batched.ciphertext.multiply_plain(&pt_scale, ckks_ctx);
+
+    // Step 2: Rotate-and-add to replicate sum across all batch slots
+    // Each multivector occupies 8 consecutive slots, so we rotate by multiples of 8
+    let mut step = 8; // Start with stride of 1 multivector (8 slots)
+    while step < batch_size * 8 {
+        let step_i32 = step as i32;
+        let rotated = rotate(&result_ct, step_i32, rotation_keys)?;
+
+        // Align levels before addition
+        let (aligned_result, aligned_rotated) = align_for_add_pub(result_ct, rotated, ckks_ctx);
+        result_ct = aligned_result.add(&aligned_rotated);
+
+        step *= 2;
+    }
+
+    Ok(BatchedMultivector::new(result_ct, batch_size))
+}
+
+/// Public wrapper for align_for_add (used by mean_pool_batch)
+fn align_for_add_pub(
+    a: Ciphertext,
+    b: Ciphertext,
+    ckks_ctx: &CkksContext,
+) -> (Ciphertext, Ciphertext) {
+    align_for_add(a, b, ckks_ctx)
 }
 
 #[cfg(test)]
@@ -294,11 +368,11 @@ mod tests {
         let pt = ckks_ctx.decrypt(&extracted, &sk);
         let slots = ckks_ctx.decode(&pt);
 
-        // Component 2 is at positions [2, 10, 18, 26] (Layout A: base_slot + component)
-        // For 4 multivectors at slots [0-7, 8-15, 16-23, 24-31], component 2 is at base+2
+        // After rotate-then-mask, component 2 values are at position 0 of each block:
+        // slots [0, 8, 16, 24] (not [2, 10, 18, 26])
         let expected = [3.0, 30.0, 300.0, 3000.0];
         for (i, &exp) in expected.iter().enumerate() {
-            let slot_idx = i * 8 + 2;  // base_slot + component_index
+            let slot_idx = i * 8;  // position 0 of each block
             let error = (slots[slot_idx] - exp).abs();
             let rel_error = error / exp;
             assert!(
@@ -308,15 +382,11 @@ mod tests {
             );
         }
 
-        // Other slots should be ~0 (only component 2 slots have values)
+        // Other slots in each block should be ~0
         for i in 0..4 {
-            for j in 0..8 {
-                if j == 2 {
-                    continue;  // Skip component 2 slots (they have values)
-                }
+            for j in 1..8 {  // positions 1-7 should be zero
                 let slot_idx = i * 8 + j;
-                // Allow higher tolerance for masked-out slots
-                let tolerance = 5.0;  // Absolute tolerance for "should be zero" values
+                let tolerance = 5.0;
                 assert!(
                     slots[slot_idx].abs() < tolerance,
                     "Slot {} should be masked to ~0, got {} (tolerance: {})",

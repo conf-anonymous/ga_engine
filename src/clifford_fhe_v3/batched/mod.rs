@@ -32,6 +32,9 @@ pub mod extraction;
 pub mod geometric;
 pub mod bootstrap;
 
+#[cfg(feature = "v2-gpu-cuda")]
+pub mod cuda_batched;
+
 use crate::clifford_fhe_v2::backends::cpu_optimized::ckks::Ciphertext;
 
 /// Batched multivector ciphertext
