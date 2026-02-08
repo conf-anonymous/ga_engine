@@ -68,6 +68,12 @@ pub mod nd;
 // Medical imaging applications
 pub mod medical_imaging;
 
+// Dataset loaders for benchmarks (ModelNet40, ScanObjectNN)
+pub mod datasets;
+
+// CliffordPointNet: Privacy-preserving 3D point cloud classification
+pub mod clifford_pointnet;
+
 // Lattice reduction for cryptanalysis (optional, enabled by lattice-reduction feature)
 #[cfg(feature = "lattice-reduction")]
 pub mod lattice_reduction;

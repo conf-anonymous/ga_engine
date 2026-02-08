@@ -30,7 +30,7 @@ echo "Results will be saved to: $RESULTS_DIR"
 echo ""
 
 # Collect system information
-echo "[1/7] Collecting system information..."
+echo "[1/7] Collecting system information... (steps 8-11 are full mode only)"
 cat > $RESULTS_DIR/system_info.txt << EOF
 ================================================================================
 SYSTEM INFORMATION
@@ -87,34 +87,52 @@ cargo run --release $CUDA_FEATURES --example bench_cuda_all_ops 2>&1 | tee $RESU
 echo ""
 
 # Run V4 CUDA geometric product benchmark (quick version)
-echo "[5/8] Running V4 CUDA Geometric Product Benchmark (Quick)..."
+echo "[5/9] Running V4 CUDA Geometric Product Benchmark (Quick)..."
 cargo run --release $CUDA_FEATURES --example bench_v4_cuda_geometric_quick 2>&1 | tee $RESULTS_DIR/v4_geometric_quick.log
+echo ""
+
+# ============================================================================
+# CliffordPointNet Benchmarks (Privacy-Preserving 3D Point Cloud Classification)
+# ============================================================================
+
+# Run CliffordPointNet encrypted inference demo (KEY BENCHMARK)
+echo "[6/9] Running CliffordPointNet Encrypted Inference..."
+echo "      This is the key benchmark for privacy-preserving 3D classification!"
+cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda \
+    --example clifford_pointnet_encrypted 2>&1 | tee $RESULTS_DIR/clifford_pointnet_encrypted.log
+echo ""
+
+# Run plaintext experiment for accuracy baseline
+echo "[7/9] Running CliffordPointNet Plaintext Baseline (10 classes, quick)..."
+CLASSES=10 POINTS=256 SAMPLES=50 HIDDEN=64 EPOCHS=30 LR=0.005 \
+    cargo run --release --no-default-features --features f64,nd \
+    --example experiment_plaintext 2>&1 | tee $RESULTS_DIR/plaintext_baseline.log
 echo ""
 
 if [ "$MODE" = "full" ]; then
     # Run full V4 CUDA geometric product benchmark
-    echo "[6/8] Running V4 CUDA Geometric Product Benchmark (Full)..."
+    echo "[8/11] Running V4 CUDA Geometric Product Benchmark (Full)..."
     cargo run --release $CUDA_FEATURES --example bench_v4_cuda_geometric 2>&1 | tee $RESULTS_DIR/v4_geometric_full.log
     echo ""
 
     # Run V4 CUDA packing benchmark
-    echo "[7/8] Running V4 CUDA Packing Benchmark..."
+    echo "[9/11] Running V4 CUDA Packing Benchmark..."
     cargo run --release $CUDA_FEATURES --example bench_v4_cuda_packing 2>&1 | tee $RESULTS_DIR/v4_packing.log
     echo ""
 
     # Run division benchmark
-    echo "[8/9] Running CUDA Division Benchmark..."
+    echo "[10/11] Running CUDA Division Benchmark..."
     cargo run --release $CUDA_FEATURES --example bench_division_cuda_gpu 2>&1 | tee $RESULTS_DIR/division_cuda.log
     echo ""
 
     # Run bootstrap benchmark (requires v3 feature)
-    echo "[9/9] Running CUDA Bootstrap Benchmark..."
+    echo "[11/11] Running CUDA Bootstrap Benchmark..."
     cargo run --release --no-default-features --features f64,nd,v2,v2-gpu-cuda,v3 --example bench_cuda_bootstrap 2>&1 | tee $RESULTS_DIR/bootstrap_cuda.log
     echo ""
 else
-    echo "[6/8] Skipping full geometric benchmark (quick mode)"
-    echo "[7/8] Skipping packing benchmark (quick mode)"
-    echo "[8/8] Skipping division benchmark (quick mode)"
+    echo "[8/7] Skipping full geometric benchmark (quick mode)"
+    echo "[9/7] Skipping packing benchmark (quick mode)"
+    echo "[10/7] Skipping division/bootstrap benchmarks (quick mode)"
     echo ""
 fi
 
@@ -137,26 +155,59 @@ if [ "$MODE" = "full" ]; then
 1. ✓ CUDA Integration Verification
 2. ✓ All Homomorphic Operations (Encode/Encrypt/Add/Mult/Rotate/etc.)
 3. ✓ V4 Geometric Product (Quick)
-4. ✓ V4 Geometric Product (Full)
-5. ✓ V4 Packing
-6. ✓ Division
-7. ✓ Bootstrap (V3 CKKS)
+4. ✓ **CliffordPointNet Encrypted Inference** (KEY RESULT)
+5. ✓ CliffordPointNet Plaintext Baseline
+6. ✓ V4 Geometric Product (Full)
+7. ✓ V4 Packing
+8. ✓ Division
+9. ✓ Bootstrap (V3 CKKS)
 
-## Key Results
-Extract key timing from log files:
+## Key Results - CliffordPointNet
+
+Extract CliffordPointNet encrypted inference timing:
+\`\`\`bash
+grep -E "Geometric Product|Encryption|Decryption|Total inference|ms" $RESULTS_DIR/clifford_pointnet_encrypted.log
 \`\`\`
-grep -E "geometric product|Geometric Product|ms|µs|speedup|Avg|Bootstrap" $RESULTS_DIR/*.log
+
+Extract plaintext accuracy:
+\`\`\`bash
+grep -E "Test Accuracy|accuracy" $RESULTS_DIR/plaintext_baseline.log
 \`\`\`
+
+## Comparison with M3 Max CPU Results
+| Operation | M3 Max CPU | NVIDIA GPU | Speedup |
+|-----------|------------|------------|---------|
+| Geometric Product | 959ms | TBD | TBD |
+| Encryption (4 pts) | 93ms | TBD | TBD |
+| Decryption | 7ms | TBD | TBD |
+
+**Target: Geometric Product < 100ms = Practical encrypted 3D inference**
 EOF
 else
     cat >> $RESULTS_DIR/SUMMARY.md << EOF
 1. ✓ CUDA Integration Verification
 2. ✓ All Homomorphic Operations (Encode/Encrypt/Add/Mult/Rotate/etc.)
 3. ✓ V4 Geometric Product (Quick)
-4. ○ V4 Geometric Product (Full) - skipped
-5. ○ V4 Packing - skipped
-6. ○ Division - skipped
-7. ○ Bootstrap - skipped
+4. ✓ **CliffordPointNet Encrypted Inference** (KEY RESULT)
+5. ✓ CliffordPointNet Plaintext Baseline
+6. ○ V4 Geometric Product (Full) - skipped
+7. ○ V4 Packing - skipped
+8. ○ Division - skipped
+9. ○ Bootstrap - skipped
+
+## Key Results - CliffordPointNet
+
+Extract CliffordPointNet encrypted inference timing:
+\`\`\`bash
+grep -E "Geometric Product|Encryption|Decryption|Total inference|ms" $RESULTS_DIR/clifford_pointnet_encrypted.log
+\`\`\`
+
+## Comparison with M3 Max CPU Results
+| Operation | M3 Max CPU | NVIDIA GPU | Speedup |
+|-----------|------------|------------|---------|
+| Geometric Product | 959ms | TBD | TBD |
+
+**Target: Geometric Product < 100ms = Practical encrypted 3D inference**
 
 To run full benchmarks:
 \`\`\`
