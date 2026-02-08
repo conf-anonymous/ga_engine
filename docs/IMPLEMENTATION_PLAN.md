@@ -4,7 +4,7 @@
 
 Demonstrate **privacy-preserving 3D point cloud classification** using Clifford algebra homomorphic encryption with production-viable performance.
 
-**Key Achievement:** V3 Batched CUDA achieves **30.25ms per geometric product at N=1024** and **69.51ms at N=8192** with full 128-bit post-quantum security, meeting the <50ms/<100ms production targets.
+**Key Achievement:** V3 Batched CUDA achieves **17.68ms per geometric product at N=1024** and **45.41ms at N=8192** with full 128-bit post-quantum security, both meeting the <50ms production target.
 
 ---
 
@@ -34,10 +34,10 @@ Demonstrate **privacy-preserving 3D point cloud classification** using Clifford 
 
 | Configuration | Per Geometric Product | Security | Status |
 |---------------|----------------------|----------|--------|
-| V3 CUDA N=1024 | 30.25ms | 80-bit | Exceeds <50ms target |
-| V3 CPU N=1024 | 50.06ms | 80-bit | Borderline |
-| V3 CUDA N=8192 | 69.51ms | 128-bit PQ | Meets <100ms target |
-| V3 CPU N=8192 | 240.96ms | 128-bit PQ | Baseline |
+| V3 CUDA N=1024 | **17.68ms** | 80-bit | Exceeds <50ms target |
+| V3 CPU N=1024 | 52.62ms | 80-bit | Borderline |
+| V3 CUDA N=8192 | **45.41ms** | 128-bit PQ | Meets <50ms target |
+| V3 CPU N=8192 | 304.79ms | 128-bit PQ | Baseline |
 | V2 CPU N=4096 | 959ms | 128-bit | Legacy baseline |
 
 ### Encrypted Accuracy Results (2026-02-08)
@@ -161,7 +161,7 @@ Measured timing breakdown (CPU, N=1024, per sample):
 | Total              |   3313.5  |   100.0%   |
 ```
 
-Note: The GP dominates timing. With V3 CUDA batched (64 products in parallel), per-product time drops to 30.25ms (N=1024) or 69.51ms (N=8192).
+Note: The GP dominates timing. With V3 CUDA batched (64 products in parallel), per-product time drops to 17.68ms (N=1024) or 45.41ms (N=8192) after Phase 4 optimizations.
 
 ---
 
@@ -217,40 +217,49 @@ Scenario: Multi-client privacy-preserving inference service.
 
 ---
 
-## Phase 4: Performance Optimization (Priority: MEDIUM) -- NOT STARTED
+## Phase 4: CUDA Performance Optimization (Priority: MEDIUM) -- COMPLETE
 
 ### Goal
 Push V3 CUDA N=8192 below 50ms per geometric product.
 
+### Results
+
+| Config | Batch | Before (ms/prod) | After (ms/prod) | Improvement | Speedup vs CPU |
+|--------|-------|-------------------|------------------|-------------|----------------|
+| N=1024 | 64 | 30.25 | **17.68** | 42% faster | 2.98x |
+| N=8192 | 512 | 69.51 | **45.41** | 35% faster | 6.71x |
+
 ### Tasks
 
-#### 4.1 Fused CUDA Kernels
-**File:** `src/clifford_fhe_v2/backends/gpu_cuda/fused_kernels.cu`
+#### 4A: Batched NTT for Relinearization -- COMPLETE
+**File:** `src/clifford_fhe_v2/backends/gpu_cuda/relin_keys.rs`
 
-- Combine NTT + pointwise multiply + INTT into single kernel
-- Reduce kernel launch overhead
-- Expected gain: 10-30%
+Switched `apply_relinearization_gpu` from sequential per-prime `gpu_multiply_flat_ntt` to `gpu_multiply_flat_ntt_batched` (all primes in one batched GPU kernel). Reduces kernel launches per relin from ~4,032 to ~112 at N=8192.
 
-#### 4.2 Persistent GPU Buffers
-**File:** `src/clifford_fhe_v3/cuda_context.rs`
+#### 4B: Remove Excessive device.synchronize() -- COMPLETE
+**File:** `src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs`
 
-- Pre-allocate GPU memory for 512-MV batches
-- Avoid repeated cudaMalloc/cudaFree
-- Expected gain: 10-20%
+Removed intermediate `device.synchronize()` calls from `ntt_forward_batched_gpu` and `ntt_inverse_batched_gpu`. CUDA default stream guarantees sequential execution within the same stream; intermediate syncs only stalled the CPU (~3-5μs per sync × 25K+ syncs per GP).
 
-#### 4.3 Async Memory Transfers
-**File:** `src/clifford_fhe_v2/backends/gpu_cuda/async_transfer.rs`
+#### 4C: GPU-Accelerated Add and Negate -- COMPLETE
+**Files:**
+- `src/clifford_fhe_v2/backends/gpu_cuda/kernels/rns.cu` — Added `rns_negate_strided` and `rns_add_strided` CUDA kernels
+- `src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs` — Added `negate_strided_gpu()`, `add_strided_gpu()` methods; rewrote `add()` to use GPU; registered new kernels in `load_ptx`
+- `src/clifford_fhe_v3/batched/cuda_batched.rs` — Rewrote `negate_cuda_ciphertext` to use GPU kernel
 
-- Overlap CPU encoding with GPU computation
-- Use CUDA streams for pipelining
-- Expected gain: 5-15%
+#### 4D: Batched NTT for Rotation Keys -- COMPLETE
+**Files:**
+- `src/clifford_fhe_v2/backends/gpu_cuda/rotation_keys.rs` — Added `gpu_multiply_flat_ntt_batched`; updated `apply_rotation_key_gpu` signature with optional `ckks_ctx` for batched NTT
+- `src/clifford_fhe_v2/backends/gpu_cuda/ciphertext_ops.rs` — Updated `rotate_by_steps` to pass `Some(ctx)`
+- `src/clifford_fhe_v3/bootstrapping/cuda_coeff_to_slot.rs` — Updated caller to pass `Some(ckks_ctx)`
 
-#### 4.4 Multi-Stream Parallelism
-**File:** `src/clifford_fhe_v3/multi_stream.rs`
+#### 4E: GPU-Resident Fused Multiply Pipeline -- COMPLETE
+**Files:**
+- `src/clifford_fhe_v2/backends/gpu_cuda/inversion.rs` — Added `multiply_ciphertexts_gpu_fused`; rewired `multiply_ciphertexts_gpu` to use it
+- `src/clifford_fhe_v2/backends/gpu_cuda/relin_keys.rs` — Added `apply_relinearization_gpu_resident` (takes GPU CudaSlice inputs)
+- `src/clifford_fhe_v2/backends/gpu_cuda/ckks.rs` — Added `exact_rescale_gpu_resident` (GPU-resident rescale)
 
-- Process multiple geometric products concurrently
-- Maximize GPU utilization
-- Expected gain: 15-25%
+Pipeline chains tensor_gpu → relin_gpu_resident → rescale_gpu_flat → flat_to_strided with minimal CPU↔GPU round-trips (~5 vs ~35 before).
 
 ---
 
@@ -323,10 +332,12 @@ cargo run --release --no-default-features --features f64,nd,v2,v3 \
 - [x] 3.2 Medical 3D Scan Classification
 - [x] 3.3 Cloud Inference Service Simulation
 
-### Week 4: Optimization
-- [ ] 4.1 Fused CUDA Kernels
-- [ ] 4.2 Persistent GPU Buffers
-- [ ] 4.3 Async Memory Transfers
+### Week 4: Optimization -- COMPLETE
+- [x] 4A Batched NTT for Relinearization
+- [x] 4B Remove Excessive device.synchronize()
+- [x] 4C GPU-Accelerated Add and Negate
+- [x] 4D Batched NTT for Rotation Keys
+- [x] 4E GPU-Resident Fused Multiply Pipeline
 
 ### Week 5: Documentation
 - [ ] 5.1 Comprehensive README
@@ -341,8 +352,8 @@ cargo run --release --no-default-features --features f64,nd,v2,v3 \
 
 | Metric | Target | Current | Status |
 |--------|--------|---------|--------|
-| Geometric Product (N=8192, CUDA) | <100ms | 69.51ms | PASS |
-| Geometric Product (N=1024, CUDA) | <50ms | 30.25ms | PASS |
+| Geometric Product (N=8192, CUDA) | <50ms | 45.41ms | PASS |
+| Geometric Product (N=1024, CUDA) | <50ms | 17.68ms | PASS |
 | End-to-end Inference (CPU, N=1024) | <5s | 3.3s | PASS |
 | Encrypted vs Plaintext Accuracy | <1% gap | 0.0% gap | PASS |
 | Prediction Agreement | >95% | 100.0% | PASS |
@@ -375,7 +386,7 @@ CLIENT:
                             ↓ Encrypted Ciphertext
 SERVER (Untrusted):
   Geometric Self-Product ──→ GP(batch, batch) via V3 Batched
-                             CPU: ~3.3s or CUDA: ~30ms (N=1024)
+                             CPU: ~3.3s or CUDA: ~18ms (N=1024)
                             │
                             ↓ Encrypted GP Features
 CLIENT:
