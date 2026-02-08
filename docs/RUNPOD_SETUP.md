@@ -30,8 +30,8 @@ source "$HOME/.cargo/env"
 ### 3. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_ORG/ga_engine_anonymous.git
-cd ga_engine_anonymous
+git clone https://github.com/conf-anonymous/ga_engine.git
+cd ga_engine
 ```
 
 ### 4. Download ModelNet40 Dataset
@@ -58,12 +58,14 @@ ls data/ModelNet40/
 ### 5. Build and Run Experiments
 
 ```bash
-# Build with release optimizations
-cargo build --release
+# Build with CUDA features (skip lattice-reduction to avoid blas-src issues on cloud)
+cargo build --release --no-default-features \
+  --features f64,nd,v1,v2,v3,v2-gpu-cuda
 
 # Run the plaintext ModelNet40 experiment
 MODELNET_PATH=data/ModelNet40 EPOCHS=200 POINTS=1024 HIDDEN=128 LR=0.001 SEED=42 \
-  cargo run --release --example experiment_modelnet40
+  cargo run --release --no-default-features --features f64,nd,v1,v2,v3,v2-gpu-cuda \
+  --example experiment_modelnet40
 ```
 
 ## Dataset Information
@@ -114,7 +116,9 @@ POINTS=1024 \
 HIDDEN=128 \
 LR=0.001 \
 SEED=42 \
-cargo run --release --example experiment_modelnet40
+cargo run --release --no-default-features \
+  --features f64,nd,v1,v2,v3,v2-gpu-cuda \
+  --example experiment_modelnet40
 ```
 
 Expected output:
@@ -129,17 +133,28 @@ Expected output:
 MODELNET_PATH=data/ModelNet40 \
 MAX_SAMPLES=10 \
 EPOCHS=5 \
-cargo run --release --example experiment_modelnet40
+cargo run --release --no-default-features \
+  --features f64,nd,v1,v2,v3,v2-gpu-cuda \
+  --example experiment_modelnet40
 ```
 
 ### E3: Encrypted Inference (CUDA)
 
-After training, run encrypted inference:
+After training, run encrypted inference on GPU:
 
 ```bash
-# TODO: Add CUDA encrypted inference example
-cargo run --release --example encrypted_inference_cuda
+cargo run --release --no-default-features \
+  --features f64,nd,v2,v3,v2-gpu-cuda \
+  --example clifford_pointnet_v3_encrypted_cuda
 ```
+
+This runs the full pipeline:
+1. Trains a GP Feature Classifier (plaintext)
+2. Sets up FHE keys + CUDA context (relin/rotation keys on GPU)
+3. Runs encrypted geometric product inference on CUDA
+4. Reports encrypted vs plaintext accuracy agreement and per-sample timing
+
+Expected on RTX 5090: ~30ms per geometric product (N=1024)
 
 ## Environment Variables
 
@@ -191,6 +206,7 @@ On REAL ModelNet40 with default settings:
 |--------|----------------|
 | Overall Accuracy (OA) | 85-92% |
 | Mean Class Accuracy (mAcc) | 82-88% |
+| Training Time (RTX 5090) | ~10-20 min |
 | Training Time (RTX 4090) | ~10-20 min |
 | Training Time (A100) | ~5-10 min |
 
