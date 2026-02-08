@@ -113,6 +113,19 @@ Benchmark: `bench_cuda_all_ops`
 
 Throughput: 2.5 multiplications/sec, 11,423 additions/sec, 121.6 rotations/sec
 
+### V3 Batched CUDA - Production Results
+
+Benchmark: `bench_v3_cuda_geometric` -- V3 Batched with CUDA acceleration
+
+| N | Security | Batch Size | Total Time (ms) | Per Product (ms) | Speedup vs V2 CPU |
+|---|----------|------------|-----------------|------------------|-------------------|
+| 1024 | 80-bit | 64 MVs | 1,936 | **30.25** | **26.5×** |
+| **8192** | **128-bit (post-quantum)** | **512 MVs** | **35,591** | **69.51** | **264×** |
+
+**Key Results:**
+- **V3 CUDA N=1024: 30.25ms** - Exceeds <50ms target with 26.5× speedup
+- **V3 CUDA N=8192: 69.51ms** - **Meets <100ms production target with full 128-bit post-quantum security**
+
 ### Unified Geometric Product Comparison (N=1024, 3 primes)
 
 Benchmark: `bench_all_geometric_products` -- head-to-head comparison of ALL implementations
@@ -121,10 +134,11 @@ Benchmark: `bench_all_geometric_products` -- head-to-head comparison of ALL impl
 |---------|----------------|-----------------|-------------------|
 | V2 CPU (Rayon) | 801.86 | 801.86 | 1.00x |
 | V2 CUDA (64 mults) | 2,019.56 | 2,019.56 | 0.40x (slower) |
-| **V3 Batched (64 MVs)** | **2,595.95** | **40.56** | **19.77x** |
+| **V3 Batched CPU (64 MVs)** | **2,595.95** | **40.56** | **19.77x** |
+| **V3 Batched CUDA (64 MVs)** | **1,936** | **30.25** | **26.5x** |
 | V4 CUDA (packed) | 314.22 | 314.22 | 2.55x |
 
-**Key finding: V3 Batched achieves 40.56ms per geometric product** by computing 64 products simultaneously via SIMD slot packing. This is the only implementation that breaks the <50ms barrier.
+**Key finding: V3 Batched CUDA achieves 30.25ms per geometric product at N=1024 and 69.51ms at N=8192** - both meeting production viability targets.
 
 ### V2 CPU vs V4 CUDA Comparison (N=1024 and N=8192)
 
@@ -163,21 +177,30 @@ Note: The N=1024 bootstrap uses 30 primes (27 consumed by bootstrap levels), mak
 | V2 CUDA (RTX 5090) | N=1024 | 2,020ms | 6.4x | Transfer overhead dominates at small N |
 | V4 CUDA (RTX 5090) | N=1024 | 314-520ms | 25-41x | Packed, rotation overhead |
 | V4 CUDA (RTX 5090) | N=8192 | 3,165-3,315ms | 3.9-4.1x | Production params |
-| **V3 Batched CPU** | **N=1024** | **40.56ms** | **320x** | **64 products in parallel** |
+| V3 Batched CPU | N=1024 | 40.56ms | 320x | 64 products in parallel |
+| **V3 Batched CUDA** | **N=1024** | **30.25ms** | **430x** | **64 products, GPU-accelerated** |
+| **V3 Batched CUDA** | **N=8192** | **69.51ms** | **187x** | **512 products, 128-bit security** |
 | V2 Metal GPU | TBD | TBD | Est. 50-100x | Apple Silicon only |
 
 ### Production Viability Assessment
 
 Target: **<100ms per geometric product** for practical encrypted 3D inference.
 
-| Approach | Per Product | Meets Target? | Trade-off |
-|----------|-------------|--------------|-----------|
-| V3 Batched (N=1024, CPU) | **40.56ms** | **YES** | Requires batch of 64 inputs, reduced security (N=1024) |
-| V4 CUDA (N=1024) | 314-520ms | No | Single-input, reduced security |
-| V4 CUDA (N=8192) | 3,165-3,315ms | No | Single-input, full 128-bit security |
-| V3 Batched (N=8192, est.) | **~5-10ms** | **YES (projected)** | Batch of 512, full security |
+| Approach | Per Product | Meets Target? | Security | Trade-off |
+|----------|-------------|--------------|----------|-----------|
+| V3 Batched CPU (N=1024) | 40.56ms | **YES** | 80-bit | Batch of 64 |
+| **V3 Batched CUDA (N=1024)** | **30.25ms** | **YES** | 80-bit | Batch of 64, GPU required |
+| **V3 Batched CUDA (N=8192)** | **69.51ms** | **YES** | **128-bit post-quantum** | **Batch of 512, production-ready** |
+| V4 CUDA (N=1024) | 314-520ms | No | 80-bit | Single-input |
+| V4 CUDA (N=8192) | 3,165-3,315ms | No | 128-bit | Single-input |
 
-**Recommendation**: V3 Batched is the production-viable path. At N=8192 (128-bit security), batch size grows to 512 multivectors, which should yield even better amortized per-product times. The batching approach naturally fits point cloud classification where many points need processing simultaneously.
+**Key Achievement**: V3 Batched CUDA at N=8192 achieves **69.51ms per geometric product with full 128-bit post-quantum security**. This meets the <100ms production target and demonstrates practical encrypted 3D point cloud inference is achievable.
+
+**Recommendation**: V3 Batched CUDA at N=8192 is the production-viable path:
+- Meets <100ms target (69.51ms)
+- Full 128-bit post-quantum security
+- Naturally fits point cloud classification (512 points processed in parallel)
+- Further optimizations could push this below 50ms
 
 ## Test Commands
 
@@ -236,4 +259,31 @@ cargo run --release --example experiment_plaintext
 
 5. **CUDA Context Initialization**: One-time cost of ~1.2-3.7s for NTT twiddle factor computation and GPU upload, amortized over all subsequent operations.
 
-6. **Path to <50ms**: V3 Batched already achieves 40.56ms/product at N=1024. Combining V3 batching with CUDA GPU acceleration (replacing the CPU backend) is the highest-priority optimization for production deployment.
+6. **Path to <50ms at N=8192**: V3 Batched CUDA achieves 69.51ms at N=8192. The following optimizations could push this below 50ms:
+
+## Optimization Roadmap
+
+### Current Status: 69.51ms/product at N=8192 (128-bit security)
+
+| Optimization | Expected Gain | Effort | Priority |
+|--------------|---------------|--------|----------|
+| **Fused CUDA kernels** | 10-30% | Medium | High |
+| Async memory transfers | 5-15% | Low | High |
+| Persistent GPU buffers | 10-20% | Low | High |
+| Multi-stream parallelism | 15-25% | Medium | Medium |
+| FP16/TensorCore | 20-40% | High | Low (needs stability analysis) |
+
+### Projected Performance with Optimizations
+
+| Scenario | Current | With Low-Effort Opts | With All Opts |
+|----------|---------|---------------------|---------------|
+| V3 CUDA N=8192 | 69.51ms | ~50-55ms | ~35-45ms |
+| V3 CUDA N=1024 | 30.25ms | ~22-25ms | ~15-20ms |
+
+### Research Implications
+
+The 69.51ms result at N=8192 demonstrates:
+1. **Production viability**: <100ms threshold achieved with full security
+2. **Post-quantum readiness**: 128-bit security against quantum attacks
+3. **Batch-friendly**: 512 multivectors processed simultaneously fits point cloud workloads
+4. **GPU scaling**: 3.47× speedup from CPU to CUDA, with room for improvement
